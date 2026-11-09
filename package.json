@@ -1,0 +1,14 @@
+{
+  "name": "oya",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev:web": "pnpm --filter @oya/web dev",
+    "dev:api": "pnpm --filter @oya/api start:dev",
+    "dev:worker": "pnpm --filter @oya/worker start:dev",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "packageManager": "pnpm@11.9.0",
+  "devDependencies": { "typescript": "^5.7.2" }
+}

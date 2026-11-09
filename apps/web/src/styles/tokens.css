@@ -1,0 +1,88 @@
+:root {
+  color-scheme: dark;
+
+  /* Brand */
+  --primary: #c9f36a;
+  --primary-deep: #b0dc4b;
+  --primary-press: #8db52d;
+  --primary-soft: #dcfa91;
+  --primary-subdued: #56652e;
+  --brand-dark-900: #080b12;
+  --brand-dark-800: #101722;
+
+  /* Ink */
+  --ink: #f2f5f0;
+  --ink-secondary: #aeb8b1;
+  --ink-mute: #718078;
+  --ink-mute-2: #66736b;
+  --on-primary: #0b100d;
+
+  /* Surfaces */
+  --canvas: #0d121a;
+  --canvas-soft: #121923;
+  --canvas-cream: #171d18;
+  --hairline: rgba(220, 245, 221, 0.1);
+  --hairline-strong: rgba(220, 245, 221, 0.18);
+  --hairline-input: rgba(201, 243, 106, 0.34);
+
+  /* Gradient stops */
+  --ruby: #ea2261;
+  --magenta: #f96bee;
+  --lemon: #9b6829;
+  --sherbet: #f7c99b;
+  --lavender: #e9d9f7;
+
+  /* Semantic, product UI only */
+  --success: #a9e86b;
+  --success-soft: #1c3421;
+  --warning: #f0bb64;
+  --warning-soft: #342b1c;
+  --danger: #ff7c86;
+
+  /* Shadow */
+  --shadow-blue: #003770;
+  --shadow-1:
+    0 0 0 1px rgba(13, 37, 61, 0.05),
+    0 1px 3px rgba(0, 55, 112, 0.08);
+  --shadow-2:
+    0 0 0 1px rgba(13, 37, 61, 0.06),
+    0 8px 24px rgba(0, 55, 112, 0.08),
+    0 2px 6px rgba(0, 55, 112, 0.04);
+  --shadow-3:
+    0 0 0 1px rgba(13, 37, 61, 0.07),
+    0 24px 48px -12px rgba(0, 55, 112, 0.22),
+    0 6px 16px -6px rgba(0, 55, 112, 0.12);
+
+  /* Type */
+  --font-sans: "General Sans", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "General Sans", system-ui, sans-serif;
+  --font-mono:
+    ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  /* Spacing */
+  --sp-xxs: 2px;
+  --sp-xs: 4px;
+  --sp-sm: 8px;
+  --sp-md: 12px;
+  --sp-lg: 16px;
+  --sp-xl: 24px;
+  --sp-xxl: 32px;
+  --sp-huge: 64px;
+
+  /* Radius */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-pill: 9999px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* Layout */
+  --page-max: 1200px;
+  --gutter: 24px;
+}
