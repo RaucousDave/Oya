@@ -20,9 +20,7 @@ export const loadConfig = () => {
 
   if (!result.success) {
     const issues = result.error.issues
-      .map((issue) => {
-        `${issue.path.join(".")}: ${issue.message}`;
-      })
+      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
       .join(",");
     throw new Error(`invalid env variables: ${issues}`);
   }
