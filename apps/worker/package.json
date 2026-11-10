@@ -2,6 +2,15 @@
   "name": "@oya/worker",
   "private": true,
   "version": "0.1.0",
-  "scripts": { "build": "tsc -p tsconfig.json", "start:dev": "tsx watch src/main.ts", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run" },
-  "devDependencies": { "tsx": "^4.19.2", "typescript": "^5.7.2", "vitest": "^2.1.8" }
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start:dev": "tsx watch src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
 }
