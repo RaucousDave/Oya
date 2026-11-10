@@ -27,7 +27,7 @@ export function createChainAdapter(
     return diff > 0n ? diff : 0n;
   }
 
-  async function getTransfers(
+  async function getTransfersInRange(
     fromBlock: bigint,
     toBlock: bigint,
   ): Promise<ChainTransfer[]> {
@@ -65,7 +65,7 @@ export function createChainAdapter(
     });
   }
 
-  return { getLatestBlock, getTransfers, getConfirmations };
+  return { getLatestBlock, getTransfersInRange, getConfirmations };
 }
 
 export function createBaseSepoliaAdapter(

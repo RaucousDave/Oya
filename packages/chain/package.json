@@ -10,10 +10,13 @@
     "test:transfer": "tsx --env-file=.env src/tests/test-transfer.ts"
   },
   "dependencies": {
+    "@noble/curves": "^2.4.0",
+    "@scure/bip32": "^2.4.0",
     "dotenv": "^18.0.10",
     "viem": "^2.57.17"
   },
   "devDependencies": {
+    "@scure/bip39": "^2.4.0",
     "@types/node": "^26.6.6",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",

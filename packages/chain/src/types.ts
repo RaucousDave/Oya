@@ -10,6 +10,6 @@ export interface ChainTransfer {
 }
 export interface ChainAdapter {
   getLatestBlock(): Promise<bigint>;
-  getTransfers(fromBlock: bigint, toBlock: bigint): Promise<ChainTransfer[]>;
+  getTransfersInRange(fromBlock: bigint, toBlock: bigint): Promise<ChainTransfer[]>;
   getConfirmations(blockNumber: bigint): Promise<bigint>;
 }
