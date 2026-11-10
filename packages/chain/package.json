@@ -1,1 +1,19 @@
-{"name":"@oya/chain","private":true,"version":"0.1.0","type":"module","scripts":{"typecheck":"tsc -p tsconfig.json --noEmit"}}
+{
+  "name": "@oya/chain",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:client": "tsx --env-file=.env src/test.ts"
+  },
+  "dependencies": {
+    "viem": "^2.57.17"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}
