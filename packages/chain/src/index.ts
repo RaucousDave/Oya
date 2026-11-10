@@ -1,7 +1,7 @@
 import { createPublicClient, http } from "viem";
 import { baseSepolia } from "viem/chains";
 
-export function createBaseSepoliaClient(rpcUrl?: string) {
+function createBaseSepoliaClient(rpcUrl?: string) {
   const url =
     rpcUrl ??
     process.env.BASE_SEPOLIA_URL ??
@@ -12,3 +12,6 @@ export function createBaseSepoliaClient(rpcUrl?: string) {
     transport: http(),
   });
 }
+
+export type { ChainTransfer, Hex, ChainAdapter } from "./types";
+export { createBaseSepoliaClient };

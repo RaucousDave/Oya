@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:client": "tsx --env-file=.env src/test.ts"
+    "test:client": "tsx --env-file=.env src/tests/test.ts",
+    "test:adapter": "tsx --env-file=.env src/tests/test-adapter.ts",
+    "test:transfer": "tsx --env-file=.env src/tests/test-transfer.ts"
   },
   "dependencies": {
+    "dotenv": "^18.0.10",
     "viem": "^2.57.17"
   },
   "devDependencies": {

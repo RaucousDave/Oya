@@ -1,4 +1,4 @@
-import { createBaseSepoliaClient } from "./index.js";
+import { createBaseSepoliaClient } from "../index";
 
 const client = createBaseSepoliaClient();
 const blockNumber = await client.getBlockNumber();
