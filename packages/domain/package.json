@@ -9,5 +9,8 @@
   },
   "dependencies": {
     "@oya/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^5.1.0"
   }
 }
