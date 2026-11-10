@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -8,7 +8,18 @@
       name="description"
       content="Accept USDT and USDC at your shop. Your customer scans a QR code, pays from any wallet, and you get a naira receipt in seconds."
     />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#faf9f6" />
+    <script>
+      // Set the theme before the first paint, including when storage is disabled.
+      (() => {
+        let saved;
+        try { saved = localStorage.getItem("oya-theme"); } catch {}
+        const theme = saved === "dark" || saved === "light" ? saved
+          : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.dataset.theme = theme;
+        document.querySelector('meta[name="theme-color"]').content = theme === "dark" ? "#171614" : "#faf9f6";
+      })();
+    </script>
     <meta property="og:title" content="Oya, pay." />
     <meta
       property="og:description"
@@ -18,7 +29,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
   </head>
@@ -27,3 +38,4 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+
