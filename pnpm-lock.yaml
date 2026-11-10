@@ -124,7 +124,11 @@ importers:
 
   packages/database: {}
 
-  packages/domain: {}
+  packages/domain:
+    dependencies:
+      '@oya/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/test-utils: {}
 
