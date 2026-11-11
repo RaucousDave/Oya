@@ -1,30 +1,70 @@
-import { parseAbiItem } from "viem";
+import { parseAbiItem, parseEventLogs, type Log } from "viem";
 import { createBaseSepoliaClient } from "./index.js";
+import { loadChainEnv } from "./env.js";
 import { ChainAdapter, ChainTransfer, Hex } from "./types.js";
 
-type BaseSepoliaClient = ReturnType<typeof createBaseSepoliaClient>;
+export interface ChainClient {
+  getBlockNumber(): Promise<bigint>;
+  getLogs(args: {
+    address: Hex;
+    fromBlock: bigint;
+    toBlock: bigint;
+  }): Promise<Log[]>;
+}
 
 export interface ChainOptions {
   tokenAddress: Hex;
 }
 
-const transferEvent = parseAbiItem(
+export const transferEvent = parseAbiItem(
   "event Transfer(address indexed from, address indexed to, uint256 value)",
 );
 
+const transferAbi = [transferEvent] as const;
+
+export function mapTransferLogs(
+  logs: Log[],
+  tokenAddress: Hex,
+): ChainTransfer[] {
+  const expectedAddress = tokenAddress.toLowerCase();
+
+  return parseEventLogs({
+    abi: transferAbi,
+    eventName: "Transfer",
+    logs,
+  }).flatMap((log) => {
+    if (log.blockNumber === null || log.transactionHash === null) {
+      return [];
+    }
+
+    if (log.address.toLowerCase() !== expectedAddress) {
+      return [];
+    }
+
+    return [
+      {
+        txHash: log.transactionHash,
+        blockNumber: log.blockNumber,
+        to: log.args.to,
+        amount: log.args.value,
+      },
+    ];
+  });
+}
+
 export function createChainAdapter(
-  client: BaseSepoliaClient,
+  client: ChainClient,
   { tokenAddress }: ChainOptions,
 ): ChainAdapter {
   async function getLatestBlock(): Promise<bigint> {
     return client.getBlockNumber();
   }
 
-  async function getConfirmations(blockNumber: bigint) {
+  async function getConfirmations(blockNumber: bigint): Promise<number> {
     const latest = await getLatestBlock();
-    const diff = latest - blockNumber;
+    const confirmations = latest - blockNumber + 1n;
 
-    return diff > 0n ? diff : 0n;
+    return confirmations > 0n ? Number(confirmations) : 0;
   }
 
   async function getTransfersInRange(
@@ -37,40 +77,19 @@ export function createChainAdapter(
 
     const logs = await client.getLogs({
       address: tokenAddress,
-      event: transferEvent,
       fromBlock,
       toBlock,
-      strict: true,
     });
 
-    return logs.flatMap((log) => {
-      if (
-        log.blockNumber === null ||
-        log.transactionHash === null ||
-        log.logIndex === null
-      ) {
-        return [];
-      }
-
-      return [
-        {
-          hash: log.transactionHash,
-          from: log.args.from,
-          to: log.args.to,
-          value: log.args.value,
-          blockNumber: log.blockNumber,
-          logIndex: log.logIndex,
-        },
-      ];
-    });
+    return mapTransferLogs(logs, tokenAddress);
   }
 
   return { getLatestBlock, getTransfersInRange, getConfirmations };
 }
 
-export function createBaseSepoliaAdapter(
-  options: ChainOptions & { rpcUrl?: string },
-): ChainAdapter {
-  const { rpcUrl, ...rest } = options;
-  return createChainAdapter(createBaseSepoliaClient(rpcUrl), rest);
+export function createBaseSepoliaAdapter(): ChainAdapter {
+  const env = loadChainEnv();
+  const client = createBaseSepoliaClient(env.RPC_URL);
+
+  return createChainAdapter(client, { tokenAddress: env.TOKEN_ADDRESS });
 }

@@ -1,15 +1,14 @@
 export type Hex = `0x${string}`;
 
 export interface ChainTransfer {
-  hash: Hex;
-  from: Hex;
-  to: Hex;
-  value: bigint;
+  txHash: Hex;
   blockNumber: bigint;
-  logIndex: number;
+  to: Hex;
+  amount: bigint;
 }
+
 export interface ChainAdapter {
   getLatestBlock(): Promise<bigint>;
   getTransfersInRange(fromBlock: bigint, toBlock: bigint): Promise<ChainTransfer[]>;
-  getConfirmations(blockNumber: bigint): Promise<bigint>;
+  getConfirmations(blockNumber: bigint): Promise<number>;
 }
