@@ -69,6 +69,10 @@ importers:
         version: 2.1.9(@types/node@26.6.6)
 
   apps/worker:
+    dependencies:
+      '@oya/chain':
+        specifier: workspace:*
+        version: link:../../packages/chain
     devDependencies:
       tsx:
         specifier: ^4.19.2
