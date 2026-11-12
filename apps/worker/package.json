@@ -14,6 +14,8 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@oya/chain": "workspace:*"
+    "@oya/chain": "workspace:*",
+    "@oya/contracts": "workspace:*",
+    "@oya/domain": "workspace:*"
   }
 }

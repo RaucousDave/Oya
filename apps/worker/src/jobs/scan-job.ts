@@ -1,8 +1,7 @@
 import type { ScanProcessor } from "../processors/scan-processor.js";
+import type { JobLogger } from "./job-logger.js";
 
-export interface JobLogger {
-  error(message: string, error: unknown): void;
-}
+export type { JobLogger } from "./job-logger.js";
 
 export class ScanJob {
   private timer: ReturnType<typeof setInterval> | undefined;

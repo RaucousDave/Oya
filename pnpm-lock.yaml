@@ -73,6 +73,12 @@ importers:
       '@oya/chain':
         specifier: workspace:*
         version: link:../../packages/chain
+      '@oya/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@oya/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
     devDependencies:
       tsx:
         specifier: ^4.19.2
