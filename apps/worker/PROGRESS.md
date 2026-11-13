@@ -1,14 +1,14 @@
 # Worker progress
 
-Last updated by: opencode (big-pickle), 2026-11-12
-Current phase: 4
+Last updated by: opencode (big-pickle), 2026-11-13
+Current phase: 5
 
 ## Phases (mark [x] only when typecheck and tests pass)
 - [x] 1. packages/chain: ChainAdapter (viem, Base Sepolia). Script printing latest block and Transfer events for the last 50 blocks. Vitest tests for log-to-ChainTransfer mapping using fake logs. No DB.
 - [x] 2. Scan processor and cursor. CursorRepository interface with an in-memory fake (real table goes under "Needs approval"). Chunked loop, scan job on a timer. Tests: normal scan, first run, restart resumes from cursor, same range twice does not double-count.
 - [x] 3. Transfer processing transaction. Tests: duplicate tx_hash, unknown address, refused transition, top-up.
 - [x] 4. Confirm job. Tests: exact, underpaid, overpaid, top-up, confirmations below 2.
-- [ ] 5. Expire job. Tests: expiry at rate lock, 5-minute top-up grace, transfer arriving just before expiry wins.
+- [x] 5. Expire job. Tests: expiry at rate lock, 5-minute top-up grace, transfer arriving just before expiry wins.
 - [ ] 6. Payout job with the mock provider, ledger entries, payout row, receipt. Tests: retry creates no duplicates.
 - [ ] 7. Postgres NOTIFY after each committed status change.
 
@@ -48,6 +48,13 @@ Current phase: 4
 - If an `UNDERPAID` payment reaches the requirement, Confirm emits two state-machine transitions in the same transaction: `UNDERPAID -> CONFIRMING` (`top_up_confirmed`) then `CONFIRMING -> PAID|OVERPAID`. This covers a top-up that confirmed after the payment was already marked underpaid.
 - Confirm audit events use `txHash: null` because they summarise multiple chain txs; `AuditEvent.txHash` was widened to `Hex | null` to match the nullable DB column.
 - Extracted `JobLogger` to `apps/worker/src/jobs/job-logger.ts`; `scan-job.ts` re-exports it so existing imports still work.
+- Expire selects candidates with `findPaymentsByStatuses(["AWAITING_PAYMENT", "UNDERPAID"])` outside the transaction, then opens one transaction per candidate and re-reads the payment by id inside it. This is the race guard: a transfer that moved the payment to CONFIRMING/PAID before the re-read wins.
+- A tick reads `clock.now()` once and uses that same instant for every candidate, so a tick is internally consistent.
+- `AWAITING_PAYMENT` expires when `evaluatePaymentTiming` returns anything other than `VALID_RATE_WINDOW`, i.e. strictly after `createdAt + 60s`. `UNDERPAID` expires only when the decision is `EXPIRED`, i.e. strictly after `createdAt + 60s + 5min`. Boundaries are therefore exclusive, matching the domain helpers' strict comparisons.
+- Expire reasons are `rate_lock_expired` (from AWAITING_PAYMENT) and `top_up_grace_expired` (from UNDERPAID). Audit rows use `txHash: null` and the tick's clock time.
+- A re-read status that is neither AWAITING_PAYMENT nor UNDERPAID is left untouched without a refused transition, so a race cannot make the job retry forever.
+- `ExpireJob` mirrors `ConfirmJob`: synchronous overlap guard, caught and logged tick failures ("Expire job failed"), interval start/stop. No chain dependency.
+- Applied `evaluatePaymentTiming` and `transitionPayment` from `@oya/domain/src/*.js` subpaths, consistent with the existing worker imports (see the domain exports item under "Needs approval").
 
 ## Needs approval
 1. Cursor table (from phase 2):
@@ -125,9 +132,21 @@ Required repository/db-client behavior (all bound to one `db.transaction`):
 - `ConfirmTransactionRunner.run` wraps the callback in the existing db client's `transaction(...)`.
 - `ledger_entries` should have a unique constraint on `(payment_id, entry_type)` if the real repository wants DB-level idempotency for the surplus row; the in-memory fake relies on the `confirmations` guard instead.
 
+5. Expire processing schema and repositories (read-only code, so nothing was changed):
+```sql
+ALTER TABLE payments ADD COLUMN created_at timestamptz NOT NULL;
+```
+Rate-lock expiry is derived from `created_at`; no separate expiry timestamp column is stored. If the real `payments` table already has a creation timestamp, use that instead of adding a duplicate.
+Required repository/db-client behavior (all bound to one `db.transaction`):
+- `findPaymentsByStatuses`: `SELECT id, status, created_at FROM payments WHERE status = ANY($1)`.
+- `findPayment`: `SELECT id, status, created_at FROM payments WHERE id = $1`.
+- `updatePaymentStatus`: `UPDATE payments SET status = $2 WHERE id = $1` (still preceded by a state-machine transition).
+- `insertAuditEvent`: `INSERT INTO audit_events (...) VALUES (...)`.
+- `ExpireTransactionRunner.run` wraps the callback in the existing db client's `transaction(...)`.
+
 ## Known issues
-- No real db client, `payments`/`chain_txs`/`audit_events`/`ledger_entries` tables, or repositories exist yet, so `TransferProcessor` and `ConfirmProcessor` are not wired into the worker and only run against in-memory fakes in tests.
-- `ScanJob` and `ConfirmJob` are not started from `apps/worker/src/main.ts` yet, because there is no real cursor table/repository or chain wiring in `main.ts`.
+- No real db client, `payments`/`chain_txs`/`audit_events`/`ledger_entries` tables, or repositories exist yet, so `TransferProcessor`, `ConfirmProcessor` and `ExpireProcessor` are not wired into the worker and only run against in-memory fakes in tests.
+- `ScanJob`, `ConfirmJob` and `ExpireJob` are not started from `apps/worker/src/main.ts` yet, because there is no real cursor table/repository, database repository or chain wiring in `main.ts`.
 - The live chain script was typechecked but not executed because no packages/chain/.env with RPC_URL/TOKEN_ADDRESS/TOKEN_DECIMALS exists in this workspace.
 
 ## Files created or changed so far
@@ -161,9 +180,15 @@ Required repository/db-client behavior (all bound to one `db.transaction`):
 - apps/worker/src/jobs/confirm-job.ts (new)
 - apps/worker/src/jobs/__tests__/confirm-job.test.ts (new)
 - apps/worker/src/processors/transfer-transaction.ts (`AuditEvent.txHash` widened to `Hex | null`)
+- apps/worker/src/processors/expire-transaction.ts (new interfaces)
+- apps/worker/src/processors/expire-processor.ts (new)
+- apps/worker/src/processors/__tests__/in-memory-expire-transaction.ts (new)
+- apps/worker/src/processors/__tests__/expire-processor.test.ts (new)
+- apps/worker/src/jobs/expire-job.ts (new)
+- apps/worker/src/jobs/__tests__/expire-job.test.ts (new)
 - apps/worker/package.json (@oya/chain, @oya/domain, @oya/contracts workspace dependencies)
 - pnpm-lock.yaml
 - apps/worker/PROGRESS.md
 
 ## Next step
-Start phase 5: implement the Expire processor and job against in-memory fakes. Use the injected `Clock` and `@oya/domain/src/expiry.js` (`evaluatePaymentTiming`, `RATE_LOCK_DURATION_MS`, `TOP_UP_GRACE_PERIOD`); transition AWAITING_PAYMENT to EXPIRED at rate lock and UNDERPAID to EXPIRED only after the 5-minute top-up grace, always re-reading status inside the transaction. Tests: expiry at rate lock, grace boundary, and a transfer arriving just before expiry winning (status re-check).
+Start phase 6: implement the Payout processor and job against in-memory fakes. For each PAID payment: transition to PAYOUT_PENDING, call the injected mock `PayoutProvider`, write one `payouts` row, ledger entries and one `receipts` snapshot, then transition to SETTLED with an audit event. Use the injected `Clock`; make retries idempotent via the proposed unique constraints (one payout and one receipt per payment) and re-read status inside the transaction. Tests: normal payout, retry creates no duplicates, refused transition.
