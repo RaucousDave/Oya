@@ -34,3 +34,7 @@ export type CreateMerchantInput = Pick<
 > & {
   userId: string;
 };
+
+export type UpdateMerchantInput = {
+  userId: string;
+} & Partial<CreateMerchantInput>;
