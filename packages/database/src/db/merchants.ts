@@ -1,4 +1,10 @@
-import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  index,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 
 export const merchants = pgTable("merchants", {
@@ -7,7 +13,10 @@ export const merchants = pgTable("merchants", {
     .primaryKey()
     .unique()
     .notNull(),
-  userId: text("user_id").references(() => user.id),
+  userId: text("user_id")
+    .references(() => user.id)
+    .notNull()
+    .unique(),
   businessName: text("business_name").notNull(),
   bankCode: text("bank_code"),
   accountNumber: text("account_number"),
@@ -15,3 +24,13 @@ export const merchants = pgTable("merchants", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at"),
 });
+
+export type Merchant = typeof merchants.$inferSelect;
+type MerchantInsert = typeof merchants.$inferInsert;
+
+export type CreateMerchantInput = Pick<
+  MerchantInsert,
+  "businessName" | "bankCode" | "accountNumber" | "accountName"
+> & {
+  userId: string;
+};

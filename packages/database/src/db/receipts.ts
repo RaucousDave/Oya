@@ -17,7 +17,8 @@ export const receipts = pgTable(
       .$defaultFn(() => crypto.randomUUID()),
     paymentId: text("payment_id")
       .references(() => payments.id)
-      .unique(),
+      .unique()
+      .notNull(),
 
     merchantSnapshot: jsonb("merchant_snapshot"),
     ngnAmountKobo: bigint("ngn_amount_kobo", { mode: "bigint" }),

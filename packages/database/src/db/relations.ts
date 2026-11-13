@@ -31,7 +31,6 @@ export const relations = defineRelations(schema, (r) => ({
     payouts: r.one.payouts({
       from: r.payments.id,
       to: r.payouts.paymentId,
-      optional: false,
     }),
     receipts: r.one.receipts({
       from: r.payments.id,

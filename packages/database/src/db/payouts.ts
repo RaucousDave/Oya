@@ -7,7 +7,8 @@ export const payouts = pgTable("payouts", {
     .$defaultFn(() => crypto.randomUUID()),
   paymentId: text("payment_id")
     .references(() => payments.id)
-    .unique(),
+    .unique()
+    .notNull(),
   ngnAmountKobo: bigint("ngn_amount_kobo", { mode: "bigint" }),
   status: text("status"),
   provider: text("provider"),

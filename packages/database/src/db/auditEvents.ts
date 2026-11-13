@@ -5,7 +5,9 @@ export const auditEvents = pgTable("audit_events", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  paymentId: text("payment_id").references(() => payments.id),
+  paymentId: text("payment_id")
+    .references(() => payments.id)
+    .notNull(),
   oldStatus: paymentStatusEnum("old_status"),
   newStatus: paymentStatusEnum("new_status"),
   reason: text("reason"),

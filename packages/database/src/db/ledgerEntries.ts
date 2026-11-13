@@ -11,7 +11,9 @@ export const ledgerEntries = pgTable("ledger_entries", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  paymentId: text("payment_id").references(() => payments.id),
+  paymentId: text("payment_id")
+    .references(() => payments.id)
+    .notNull(),
   entryType: text("entry_type"),
   amount: numeric("amount", {
     precision: 78,

@@ -16,7 +16,9 @@ export const chainTxs = pgTable(
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    paymentId: text("payment_id").references(() => payments.id),
+    paymentId: text("payment_id")
+      .references(() => payments.id)
+      .notNull(),
     txHash: text("tx_hash").unique(),
     amount: numeric("amount", {
       precision: 78,

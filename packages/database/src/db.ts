@@ -7,3 +7,4 @@ if (!connectionString)
   throw new Error("Missing connection string of postgres db`");
 
 export const db = drizzle(connectionString, { relations: relations });
+export type Database = typeof db;

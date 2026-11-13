@@ -1,0 +1,197 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "58506b55-de63-42fb-9b92-230e9b09609c",
+  "prevIds": [
+    "a56700da-ec29-4536-a47f-f8aea6d2268b"
+  ],
+  "footprints": [
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "audit_events",
+        "payment_id"
+      ],
+      "writes": [
+        "s|colprop|public.audit_events.payment_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.audit_events",
+        "n|sch|public",
+        "n|col|public.audit_events.payment_id"
+      ],
+      "sqlHash": "ef0df1d74b72ecb1"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "chain_txs",
+        "payment_id"
+      ],
+      "writes": [
+        "s|colprop|public.chain_txs.payment_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.chain_txs",
+        "n|sch|public",
+        "n|col|public.chain_txs.payment_id"
+      ],
+      "sqlHash": "e3179c724d687df8"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "merchants",
+        "user_id"
+      ],
+      "writes": [
+        "s|colprop|public.merchants.user_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.merchants",
+        "n|sch|public",
+        "n|col|public.merchants.user_id"
+      ],
+      "sqlHash": "6099ea4b011eca7c"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payouts",
+        "payment_id"
+      ],
+      "writes": [
+        "s|colprop|public.payouts.payment_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.payouts",
+        "n|sch|public",
+        "n|col|public.payouts.payment_id"
+      ],
+      "sqlHash": "e343788f39386031"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "receipts",
+        "payment_id"
+      ],
+      "writes": [
+        "s|colprop|public.receipts.payment_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.receipts",
+        "n|sch|public",
+        "n|col|public.receipts.payment_id"
+      ],
+      "sqlHash": "4db67f90774f5bbf"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ledger_entries",
+        "payment_id"
+      ],
+      "writes": [
+        "s|colprop|public.ledger_entries.payment_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.ledger_entries",
+        "n|sch|public",
+        "n|col|public.ledger_entries.payment_id"
+      ],
+      "sqlHash": "9f7f164a45fd6684"
+    },
+    {
+      "statementType": "add_unique",
+      "statementTarget": [
+        "table",
+        "public",
+        "merchants"
+      ],
+      "writes": [
+        "s|uq|public.merchants.merchants_user_id_key",
+        "n|uq|public.merchants.merchants_user_id_key",
+        "e|uq|public.merchants.merchants_user_id_key",
+        "n|con|public.merchants.merchants_user_id_key",
+        "n|rel|public.merchants_user_id_key"
+      ],
+      "reads": [
+        "n|tbl|public.merchants",
+        "n|sch|public",
+        "n|col|public.merchants.user_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "merchants",
+        "name": "merchants_user_id_key",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"audit_events\",\"payment_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"chain_txs\",\"payment_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"merchants\",\"user_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"payouts\",\"payment_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"receipts\",\"payment_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"ledger_entries\",\"payment_id\"]",
+      "set": {
+        "notNull": true
+      }
+    }
+  ]
+}
