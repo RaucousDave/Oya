@@ -6,7 +6,12 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "baseUrl": ".",
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
+    "paths": {
+      "@oya/database": ["packages/database/src/index.ts"],
+      "@oya/database/*": ["packages/database/src"],
+    },
   },
 }

@@ -1,1 +1,32 @@
-{"name":"@oya/database","private":true,"version":"0.1.0","type":"module","scripts":{"typecheck":"tsc -p tsconfig.json --noEmit"}}
+{
+  "name": "@oya/database",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "@nestjs/drizzle": "^0.0.2",
+    "dotenv": "^18.0.10",
+    "drizzle-orm": "1.0.0-rc.5",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "1.0.0-rc.5",
+    "tsx": "^4.23.15"
+  },
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  }
+}
