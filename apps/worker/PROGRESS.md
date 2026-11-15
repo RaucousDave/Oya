@@ -1,7 +1,7 @@
 # Worker progress
 
-Last updated by: opencode (big-pickle), 2026-11-13
-Current phase: 5
+Last updated by: opencode (big-pickle), 2026-11-15
+Current phase: 6
 
 ## Phases (mark [x] only when typecheck and tests pass)
 - [x] 1. packages/chain: ChainAdapter (viem, Base Sepolia). Script printing latest block and Transfer events for the last 50 blocks. Vitest tests for log-to-ChainTransfer mapping using fake logs. No DB.
@@ -9,7 +9,7 @@ Current phase: 5
 - [x] 3. Transfer processing transaction. Tests: duplicate tx_hash, unknown address, refused transition, top-up.
 - [x] 4. Confirm job. Tests: exact, underpaid, overpaid, top-up, confirmations below 2.
 - [x] 5. Expire job. Tests: expiry at rate lock, 5-minute top-up grace, transfer arriving just before expiry wins.
-- [ ] 6. Payout job with the mock provider, ledger entries, payout row, receipt. Tests: retry creates no duplicates.
+- [x] 6. Payout job with the mock provider, ledger entries, payout row, receipt. Tests: retry creates no duplicates.
 - [ ] 7. Postgres NOTIFY after each committed status change.
 
 ## Commands
@@ -55,6 +55,13 @@ Current phase: 5
 - A re-read status that is neither AWAITING_PAYMENT nor UNDERPAID is left untouched without a refused transition, so a race cannot make the job retry forever.
 - `ExpireJob` mirrors `ConfirmJob`: synchronous overlap guard, caught and logged tick failures ("Expire job failed"), interval start/stop. No chain dependency.
 - Applied `evaluatePaymentTiming` and `transitionPayment` from `@oya/domain/src/*.js` subpaths, consistent with the existing worker imports (see the domain exports item under "Needs approval").
+- Payout selects `PAID` payments only, then opens one transaction per candidate and re-reads the payment by id. A candidate that is no longer `PAID` at re-read is left untouched without a refused transition, so scan/expire races cannot make the job retry forever.
+- The whole payout for one payment runs inside that single transaction: `PAID -> PAYOUT_PENDING` + audit, provider call, payout row, two ledger rows, receipt, `PAYOUT_PENDING -> SETTLED` + audit. A failure rolls every DB write back and leaves the payment `PAID`, so a retry restarts from the beginning with no partial rows.
+- The provider call happens inside the transaction and receives `idempotencyKey = payment.id`. The database cannot roll back an external payout, so retry safety depends on the provider honouring that key. `MockPayoutProvider` stores results by key and returns the same provider reference for a repeated key.
+- Payout ledger rows are both positive kobo amounts: `MERCHANT_BALANCE` credits the merchant and `PAYOUT` records the withdrawal; `entry_type` distinguishes direction (no negative amounts).
+- The payout row status is the provider result status (`COMPLETED` for the mock), not a separate hardcoded value. The receipt snapshots merchant id, NGN kobo, token base units, rate string, tx hashes and `Clock` time.
+- `PayoutTransaction` owns payout-specific ledger/receipt types instead of widening the confirm-only `LedgerEntryType`; the real `ledger_entries` table is shared.
+- `PayoutJob` mirrors `ExpireJob`: synchronous overlap guard, caught and logged tick failures ("Payout job failed"), interval start/stop, no chain dependency.
 
 ## Needs approval
 1. Cursor table (from phase 2):
@@ -144,9 +151,51 @@ Required repository/db-client behavior (all bound to one `db.transaction`):
 - `insertAuditEvent`: `INSERT INTO audit_events (...) VALUES (...)`.
 - `ExpireTransactionRunner.run` wraps the callback in the existing db client's `transaction(...)`.
 
+6. Payout processing schema and repositories (read-only code, so nothing was changed):
+```sql
+ALTER TABLE payments ADD COLUMN merchant_id text NOT NULL;
+ALTER TABLE payments ADD COLUMN ngn_amount_kobo bigint NOT NULL;
+ALTER TABLE payments ADD COLUMN rate text NOT NULL;
+
+CREATE TABLE payouts (
+  id bigserial PRIMARY KEY,
+  payment_id uuid NOT NULL UNIQUE REFERENCES payments(id),
+  amount_kobo bigint NOT NULL,
+  status text NOT NULL,
+  provider text NOT NULL,
+  provider_reference text NOT NULL,
+  created_at timestamptz NOT NULL
+);
+
+CREATE TABLE receipts (
+  id bigserial PRIMARY KEY,
+  payment_id uuid NOT NULL UNIQUE REFERENCES payments(id),
+  merchant_id text NOT NULL,
+  ngn_amount_kobo bigint NOT NULL,
+  token_amount numeric(78,0) NOT NULL,
+  rate text NOT NULL,
+  tx_hashes text[] NOT NULL,
+  created_at timestamptz NOT NULL
+);
+
+ALTER TABLE ledger_entries ADD CONSTRAINT ledger_entries_payment_entry_unique
+  UNIQUE (payment_id, entry_type);
+```
+Required repository/db-client behavior (all bound to one `db.transaction`):
+- `findPaymentsByStatuses`: `SELECT id, status FROM payments WHERE status = ANY($1)` (payout only asks for `PAID`).
+- `findPayment`: `SELECT id, status, merchant_id, ngn_amount_kobo, rate FROM payments WHERE id = $1`; `token_amount` is the sum of confirmed `chain_txs.amount` for the payment (or `received_amount`), and `tx_hashes` comes from `SELECT tx_hash FROM chain_txs WHERE payment_id = $1 ORDER BY block_number`.
+- `updatePaymentStatus`: `UPDATE payments SET status = $2 WHERE id = $1` (still preceded by a state-machine transition).
+- `insertPayout`: `INSERT INTO payouts (...) VALUES (...) ON CONFLICT (payment_id) DO NOTHING`.
+- `insertLedgerEntry`: `INSERT INTO ledger_entries (...) VALUES (...) ON CONFLICT (payment_id, entry_type) DO NOTHING`.
+- `insertReceipt`: `INSERT INTO receipts (...) VALUES (...) ON CONFLICT (payment_id) DO NOTHING`.
+- `insertAuditEvent`: `INSERT INTO audit_events (...) VALUES (...)`.
+- `PayoutTransactionRunner.run` wraps the callback in the existing db client's `transaction(...)`.
+- The real `PayoutProvider` must treat `idempotencyKey` (the payment id) as a deduplication key, because the external payout cannot be rolled back if the surrounding DB transaction aborts.
+
 ## Known issues
-- No real db client, `payments`/`chain_txs`/`audit_events`/`ledger_entries` tables, or repositories exist yet, so `TransferProcessor`, `ConfirmProcessor` and `ExpireProcessor` are not wired into the worker and only run against in-memory fakes in tests.
-- `ScanJob`, `ConfirmJob` and `ExpireJob` are not started from `apps/worker/src/main.ts` yet, because there is no real cursor table/repository, database repository or chain wiring in `main.ts`.
+- No real db client, `payments`/`chain_txs`/`audit_events`/`ledger_entries`/`payouts`/`receipts` tables, or repositories exist yet, so `TransferProcessor`, `ConfirmProcessor`, `ExpireProcessor` and `PayoutProcessor` are not wired into the worker and only run against in-memory fakes in tests.
+- `ScanJob`, `ConfirmJob`, `ExpireJob` and `PayoutJob` are not started from `apps/worker/src/main.ts` yet, because there is no real cursor table/repository, database repository or chain wiring in `main.ts`.
+- Only `MockPayoutProvider` exists; there is no real `PayoutProvider` adapter or provider-side idempotency store.
 - The live chain script was typechecked but not executed because no packages/chain/.env with RPC_URL/TOKEN_ADDRESS/TOKEN_DECIMALS exists in this workspace.
 
 ## Files created or changed so far
@@ -186,9 +235,17 @@ Required repository/db-client behavior (all bound to one `db.transaction`):
 - apps/worker/src/processors/__tests__/expire-processor.test.ts (new)
 - apps/worker/src/jobs/expire-job.ts (new)
 - apps/worker/src/jobs/__tests__/expire-job.test.ts (new)
+- apps/worker/src/processors/payout-provider.ts (new interfaces)
+- apps/worker/src/processors/mock-payout-provider.ts (new)
+- apps/worker/src/processors/payout-transaction.ts (new interfaces)
+- apps/worker/src/processors/payout-processor.ts (new)
+- apps/worker/src/processors/__tests__/in-memory-payout-transaction.ts (new)
+- apps/worker/src/processors/__tests__/payout-processor.test.ts (new)
+- apps/worker/src/jobs/payout-job.ts (new)
+- apps/worker/src/jobs/__tests__/payout-job.test.ts (new)
 - apps/worker/package.json (@oya/chain, @oya/domain, @oya/contracts workspace dependencies)
 - pnpm-lock.yaml
 - apps/worker/PROGRESS.md
 
 ## Next step
-Start phase 6: implement the Payout processor and job against in-memory fakes. For each PAID payment: transition to PAYOUT_PENDING, call the injected mock `PayoutProvider`, write one `payouts` row, ledger entries and one `receipts` snapshot, then transition to SETTLED with an audit event. Use the injected `Clock`; make retries idempotent via the proposed unique constraints (one payout and one receipt per payment) and re-read status inside the transaction. Tests: normal payout, retry creates no duplicates, refused transition.
+Start phase 7: add a `StatusNotifier` interface (with an in-memory fake) and send a PostgreSQL `NOTIFY payment_status` with the payment id after each committed status-changing transaction (transfer, confirm, expire, payout). Do not add multi-instance locking. Proposed NOTIFY wiring and any new repository method go under "Needs approval". Tests: a committed transition produces exactly one notification, a rolled-back transaction produces none, and a notifier failure does not undo the committed status change.
