@@ -40,6 +40,191 @@ Password recovery and verification are optional follow-up capabilities, not conf
 
 Sources: [email/password endpoints](https://better-auth.com/docs/authentication/email-password), [session management](https://better-auth.com/docs/concepts/session-management), [NestJS integration](https://better-auth.com/docs/integrations/nestjs). The NestJS integration guards application routes globally by default: explicitly mark checkout and health controllers anonymous. Better Auth itself handles its auth routes.
 
+### Authentication JSON examples
+
+These illustrate the native Better Auth responses for the current email/password setup. Session tokens below are placeholders. Optional callbacks are omitted, so sign-in does not redirect; plugins or configuration changes can alter library responses.
+
+### `POST /api/auth/sign-up/email`
+
+Request body:
+
+```json
+{
+  "name": "Ada",
+  "email": "ada@example.com",
+  "password": "example-password-123"
+}
+```
+
+Response: `200`.
+
+```json
+{
+  "token": "example-session-token",
+  "user": {
+    "id": "usr_ada",
+    "name": "Ada",
+    "email": "ada@example.com",
+    "emailVerified": false,
+    "image": null,
+    "createdAt": "2026-11-16T10:00:00.000Z",
+    "updatedAt": "2026-11-16T10:00:00.000Z"
+  }
+}
+```
+
+### `POST /api/auth/sign-in/email`
+
+Request body:
+
+```json
+{
+  "email": "ada@example.com",
+  "password": "example-password-123",
+  "rememberMe": true
+}
+```
+
+Response: `200`.
+
+```json
+{
+  "redirect": false,
+  "token": "example-session-token",
+  "user": {
+    "id": "usr_ada",
+    "name": "Ada",
+    "email": "ada@example.com",
+    "emailVerified": false,
+    "image": null,
+    "createdAt": "2026-11-16T10:00:00.000Z",
+    "updatedAt": "2026-11-16T10:00:00.000Z"
+  }
+}
+```
+
+### `GET /api/auth/get-session`
+
+Request body: none. Send the session cookie when available.
+
+Response: `200`.
+
+```json
+{
+  "user": {
+    "id": "usr_ada",
+    "name": "Ada",
+    "email": "ada@example.com",
+    "emailVerified": false,
+    "image": null,
+    "createdAt": "2026-11-16T10:00:00.000Z",
+    "updatedAt": "2026-11-16T10:00:00.000Z"
+  },
+  "session": {
+    "id": "session_example",
+    "userId": "usr_ada",
+    "token": "example-session-token",
+    "expiresAt": "2026-11-23T10:00:00.000Z",
+    "createdAt": "2026-11-16T10:00:00.000Z",
+    "updatedAt": "2026-11-16T10:00:00.000Z",
+    "ipAddress": "192.0.2.1",
+    "userAgent": "Example browser"
+  }
+}
+```
+
+Without a valid session, the `200` response body is JSON `null`.
+
+### `POST /api/auth/sign-out`
+
+Request body: none. Send the session cookie.
+
+Response: `200`.
+
+```json
+{
+  "success": true
+}
+```
+
+### Optional authentication examples
+
+These require the email delivery configuration described above; they are not promises that the current app sends email.
+
+### `POST /api/auth/request-password-reset`
+
+Request body:
+
+```json
+{
+  "email": "ada@example.com",
+  "redirectTo": "https://checkout.example.com/reset-password"
+}
+```
+
+Response: `200`.
+
+```json
+{
+  "status": true,
+  "message": "If this email exists in our system, check your email for the reset link"
+}
+```
+
+### `POST /api/auth/reset-password`
+
+Request body:
+
+```json
+{
+  "newPassword": "new-example-password-123",
+  "token": "example-reset-token"
+}
+```
+
+Response: `200`.
+
+```json
+{
+  "status": true
+}
+```
+
+### `POST /api/auth/send-verification-email`
+
+Request body:
+
+```json
+{
+  "email": "ada@example.com"
+}
+```
+
+Response: `200`.
+
+```json
+{
+  "status": true
+}
+```
+
+### `GET /api/auth/verify-email`
+
+Request body: none.
+
+Query: `?token=example-verification-token` (no callback URL).
+
+Response: `200`.
+
+```json
+{
+  "status": true,
+  "user": null
+}
+```
+
+With `callbackURL`, successful verification redirects to that allowed URL instead of returning the JSON example above.
+
 ## Merchant onboarding and profile
 
 Proposed MVP assumption: one merchant business per auth user. Payout destinations are used only by the mock provider.
@@ -65,6 +250,86 @@ type Merchant = {
 };
 ```
 
+### `POST /merchants`
+
+Request body:
+
+```json
+{
+  "businessName": "Ada Stores",
+  "payoutDestination": {
+    "bankCode": "000",
+    "accountNumber": "0123456789",
+    "accountName": "Ada Stores"
+  }
+}
+```
+
+Response: `201`.
+
+```json
+{
+  "id": "mer_ada",
+  "userId": "usr_ada",
+  "businessName": "Ada Stores",
+  "payoutDestination": {
+    "bankCode": "000",
+    "accountNumber": "0123456789",
+    "accountName": "Ada Stores"
+  },
+  "createdAt": "2026-11-16T10:00:00.000Z",
+  "updatedAt": "2026-11-16T10:00:00.000Z"
+}
+```
+
+### `GET /merchants/me`
+
+Request body: none.
+
+Response: `200`.
+
+```json
+{
+  "id": "mer_ada",
+  "userId": "usr_ada",
+  "businessName": "Ada Stores",
+  "payoutDestination": {
+    "bankCode": "000",
+    "accountNumber": "0123456789",
+    "accountName": "Ada Stores"
+  },
+  "createdAt": "2026-11-16T10:00:00.000Z",
+  "updatedAt": "2026-11-16T10:00:00.000Z"
+}
+```
+
+### `PATCH /merchants/me`
+
+Request body:
+
+```json
+{
+  "businessName": "Ada Market"
+}
+```
+
+Response: `200`.
+
+```json
+{
+  "id": "mer_ada",
+  "userId": "usr_ada",
+  "businessName": "Ada Market",
+  "payoutDestination": {
+    "bankCode": "000",
+    "accountNumber": "0123456789",
+    "accountName": "Ada Stores"
+  },
+  "createdAt": "2026-11-16T10:00:00.000Z",
+  "updatedAt": "2026-11-16T10:00:30.000Z"
+}
+```
+
 ## Payment creation and merchant views
 
 | Method and path | Access | Request | Successful response |
@@ -82,6 +347,264 @@ The MVP server selects its configured Base Sepolia test token and network. The r
 
 Transaction, audit, and ledger listing routes are proposed inspection conveniences; they can be deferred if the MVP dashboard does not expose those views. A table does not inherently require a CRUD controller.
 
+### Example values
+
+The following examples describe the proposed contract, not live API responses. They use NGN 15,000 (`1500000` kobo), a rate of NGN 1,500 per USD, and a configured USD-pegged test token with six decimals: 10 tokens = `10000000` base units. Addresses, hashes, IDs, bank details, domains, and tokens are illustrative; replace them with configured or server-issued values. Payout, receipt, and transaction examples show later lifecycle snapshots of the same payment.
+
+### `POST /payments`
+
+Headers: `Content-Type: application/json`, `Idempotency-Key: create-payment-example-001`, and the session cookie.
+
+Request body:
+
+```json
+{
+  "ngnAmountKobo": "1500000"
+}
+```
+
+Response: `201`.
+
+```json
+{
+  "id": "pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+  "merchant": {
+    "businessName": "Ada Stores"
+  },
+  "ngnAmountKobo": "1500000",
+  "requiredTokenAmount": "10000000",
+  "receivedTokenAmount": "0",
+  "remainingTokenAmount": "10000000",
+  "token": {
+    "address": "0x1111111111111111111111111111111111111111",
+    "symbol": "TESTUSD",
+    "decimals": 6
+  },
+  "chainId": 84532,
+  "lockedRate": "1500.000000",
+  "rateExpiresAt": "2026-11-16T10:01:00.000Z",
+  "topUpExpiresAt": "2026-11-16T10:06:00.000Z",
+  "depositAddress": "0x2222222222222222222222222222222222222222",
+  "status": "AWAITING_PAYMENT",
+  "requiredConfirmations": 2,
+  "checkoutUrl": "https://checkout.example.com/payments/pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+  "qrPayload": "ethereum:0x1111111111111111111111111111111111111111@84532/transfer?address=0x2222222222222222222222222222222222222222&uint256=10000000",
+  "receiptAvailable": false,
+  "createdAt": "2026-11-16T10:00:00.000Z",
+  "updatedAt": "2026-11-16T10:00:00.000Z",
+  "merchantId": "mer_ada"
+}
+```
+
+### `GET /merchants/me/payments`
+
+Request body: none.
+
+Example query: `?limit=20&status=AWAITING_PAYMENT&from=2026-11-16T00:00:00.000Z&to=2026-11-17T00:00:00.000Z`. For later pages, pass the returned opaque `nextCursor` as `cursor`.
+
+Response: `200`.
+
+```json
+{
+  "items": [
+    {
+      "id": "pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+      "merchant": {
+        "businessName": "Ada Stores"
+      },
+      "ngnAmountKobo": "1500000",
+      "requiredTokenAmount": "10000000",
+      "receivedTokenAmount": "0",
+      "remainingTokenAmount": "10000000",
+      "token": {
+        "address": "0x1111111111111111111111111111111111111111",
+        "symbol": "TESTUSD",
+        "decimals": 6
+      },
+      "chainId": 84532,
+      "lockedRate": "1500.000000",
+      "rateExpiresAt": "2026-11-16T10:01:00.000Z",
+      "topUpExpiresAt": "2026-11-16T10:06:00.000Z",
+      "depositAddress": "0x2222222222222222222222222222222222222222",
+      "status": "AWAITING_PAYMENT",
+      "requiredConfirmations": 2,
+      "checkoutUrl": "https://checkout.example.com/payments/pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+      "qrPayload": "ethereum:0x1111111111111111111111111111111111111111@84532/transfer?address=0x2222222222222222222222222222222222222222&uint256=10000000",
+      "receiptAvailable": false,
+      "createdAt": "2026-11-16T10:00:00.000Z",
+      "updatedAt": "2026-11-16T10:00:00.000Z",
+      "merchantId": "mer_ada"
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+### `GET /merchants/me/payments/:paymentId`
+
+Request body: none. Path: `paymentId=pay_8a6f0c4e92b741d5b307ef19a26c8d04`.
+
+Response: `200`.
+
+```json
+{
+  "id": "pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+  "merchant": {
+    "businessName": "Ada Stores"
+  },
+  "ngnAmountKobo": "1500000",
+  "requiredTokenAmount": "10000000",
+  "receivedTokenAmount": "0",
+  "remainingTokenAmount": "10000000",
+  "token": {
+    "address": "0x1111111111111111111111111111111111111111",
+    "symbol": "TESTUSD",
+    "decimals": 6
+  },
+  "chainId": 84532,
+  "lockedRate": "1500.000000",
+  "rateExpiresAt": "2026-11-16T10:01:00.000Z",
+  "topUpExpiresAt": "2026-11-16T10:06:00.000Z",
+  "depositAddress": "0x2222222222222222222222222222222222222222",
+  "status": "AWAITING_PAYMENT",
+  "requiredConfirmations": 2,
+  "checkoutUrl": "https://checkout.example.com/payments/pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+  "qrPayload": "ethereum:0x1111111111111111111111111111111111111111@84532/transfer?address=0x2222222222222222222222222222222222222222&uint256=10000000",
+  "receiptAvailable": false,
+  "createdAt": "2026-11-16T10:00:00.000Z",
+  "updatedAt": "2026-11-16T10:00:00.000Z",
+  "merchantId": "mer_ada"
+}
+```
+
+### `GET /merchants/me/payments/:paymentId/transactions`
+
+Request body: none.
+
+Query: `?limit=20`; optional `cursor` for subsequent pages.
+
+Response: `200`.
+
+```json
+{
+  "items": [
+    {
+      "id": "tx_example",
+      "paymentId": "pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+      "txHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "amount": "10000000",
+      "blockNumber": "35000000",
+      "confirmations": 2,
+      "detectedAt": "2026-11-16T10:00:20.000Z",
+      "confirmedAt": "2026-11-16T10:00:24.000Z"
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+### `GET /merchants/me/payments/:paymentId/payout`
+
+Request body: none.
+
+Response: `200`.
+
+```json
+{
+  "id": "payout_example",
+  "paymentId": "pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+  "ngnAmountKobo": "1500000",
+  "status": "SUCCEEDED",
+  "provider": "mock",
+  "providerReference": "mock_payout_example",
+  "createdAt": "2026-11-16T10:00:25.000Z",
+  "updatedAt": "2026-11-16T10:00:30.000Z"
+}
+```
+
+### `GET /merchants/me/payments/:paymentId/receipt`
+
+Request body: none.
+
+Response: `200`.
+
+```json
+{
+  "id": "rcpt_example",
+  "paymentId": "pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+  "merchant": {
+    "businessName": "Ada Stores"
+  },
+  "ngnAmountKobo": "1500000",
+  "tokenAmount": "10000000",
+  "token": {
+    "address": "0x1111111111111111111111111111111111111111",
+    "symbol": "TESTUSD",
+    "decimals": 6
+  },
+  "chainId": 84532,
+  "rate": "1500.000000",
+  "transactionHashes": [
+    "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "createdAt": "2026-11-16T10:00:30.000Z"
+}
+```
+
+### `GET /merchants/me/payments/:paymentId/audit-events`
+
+Request body: none.
+
+Query: `?limit=20`; optional `cursor`.
+
+Response: `200`.
+
+```json
+{
+  "items": [
+    {
+      "id": "audit_example",
+      "paymentId": "pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+      "oldStatus": "CREATED",
+      "newStatus": "AWAITING_PAYMENT",
+      "reason": "Payment address and rate prepared",
+      "metadata": {},
+      "createdAt": "2026-11-16T10:00:00.000Z"
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+### `GET /merchants/me/payments/:paymentId/ledger-entries`
+
+Request body: none.
+
+Query: `?limit=20`; optional `cursor`.
+
+Response: `200`.
+
+```json
+{
+  "items": [
+    {
+      "id": "ledger_example",
+      "paymentId": "pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+      "entryType": "TOKEN_RECEIVED",
+      "amount": "10000000",
+      "assetCode": "TESTUSD",
+      "assetDecimals": 6,
+      "chainId": 84532,
+      "tokenAddress": "0x1111111111111111111111111111111111111111",
+      "createdAt": "2026-11-16T10:00:24.000Z"
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+All payment-specific merchant examples use the same `paymentId` path value shown above. An empty listing returns `{"items":[],"nextCursor":null}`. A non-null `nextCursor` means another page can be requested.
+
 ## Customer checkout and realtime
 
 | Method and path | Access | Request | Successful response |
@@ -94,11 +617,80 @@ The payment link is a bearer capability: do not use sequential or guessable IDs.
 
 The browser renders `qrPayload` using `qrcode`; a separate QR-image endpoint is unnecessary. Customers send tokens through their wallets. They do not submit transaction hashes to mark payments paid. Underpayments are topped up at the same deposit address during the grace period, so no HTTP top-up mutation is required.
 
-Example SSE frame (`data` contains a complete `CheckoutPayment` in the actual contract):
+### `GET /payments/:paymentId`
+
+Request body: none. Path: `paymentId=pay_8a6f0c4e92b741d5b307ef19a26c8d04`.
+
+Response: `200`.
+
+```json
+{
+  "id": "pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+  "merchant": {
+    "businessName": "Ada Stores"
+  },
+  "ngnAmountKobo": "1500000",
+  "requiredTokenAmount": "10000000",
+  "receivedTokenAmount": "0",
+  "remainingTokenAmount": "10000000",
+  "token": {
+    "address": "0x1111111111111111111111111111111111111111",
+    "symbol": "TESTUSD",
+    "decimals": 6
+  },
+  "chainId": 84532,
+  "lockedRate": "1500.000000",
+  "rateExpiresAt": "2026-11-16T10:01:00.000Z",
+  "topUpExpiresAt": "2026-11-16T10:06:00.000Z",
+  "depositAddress": "0x2222222222222222222222222222222222222222",
+  "status": "AWAITING_PAYMENT",
+  "requiredConfirmations": 2,
+  "checkoutUrl": "https://checkout.example.com/payments/pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+  "qrPayload": "ethereum:0x1111111111111111111111111111111111111111@84532/transfer?address=0x2222222222222222222222222222222222222222&uint256=10000000",
+  "receiptAvailable": false,
+  "createdAt": "2026-11-16T10:00:00.000Z",
+  "updatedAt": "2026-11-16T10:00:00.000Z"
+}
+```
+
+### `GET /payments/:paymentId/receipt`
+
+Request body: none.
+
+Response: `200`.
+
+```json
+{
+  "id": "rcpt_example",
+  "paymentId": "pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+  "merchant": {
+    "businessName": "Ada Stores"
+  },
+  "ngnAmountKobo": "1500000",
+  "tokenAmount": "10000000",
+  "token": {
+    "address": "0x1111111111111111111111111111111111111111",
+    "symbol": "TESTUSD",
+    "decimals": 6
+  },
+  "chainId": 84532,
+  "rate": "1500.000000",
+  "transactionHashes": [
+    "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "createdAt": "2026-11-16T10:00:30.000Z"
+}
+```
+
+### `GET /payments/:paymentId/events`
+
+Request body: none. Use the same payment ID and send `Accept: text/event-stream`.
+
+Response: `200`, `Content-Type: text/event-stream`. Each `data` value is a complete `CheckoutPayment`; the blank line terminates the event. This initial snapshot has no confirmed transfers yet.
 
 ```text
 event: payment.updated
-data: {"id":"opaque-payment-id","status":"CONFIRMING", "...":"remaining checkout fields"}
+data: {"id":"pay_8a6f0c4e92b741d5b307ef19a26c8d04","merchant":{"businessName":"Ada Stores"},"ngnAmountKobo":"1500000","requiredTokenAmount":"10000000","receivedTokenAmount":"0","remainingTokenAmount":"10000000","token":{"address":"0x1111111111111111111111111111111111111111","symbol":"TESTUSD","decimals":6},"chainId":84532,"lockedRate":"1500.000000","rateExpiresAt":"2026-11-16T10:01:00.000Z","topUpExpiresAt":"2026-11-16T10:06:00.000Z","depositAddress":"0x2222222222222222222222222222222222222222","status":"AWAITING_PAYMENT","requiredConfirmations":2,"checkoutUrl":"https://checkout.example.com/payments/pay_8a6f0c4e92b741d5b307ef19a26c8d04","qrPayload":"ethereum:0x1111111111111111111111111111111111111111@84532/transfer?address=0x2222222222222222222222222222222222222222&uint256=10000000","receiptAvailable":false,"createdAt":"2026-11-16T10:00:00.000Z","updatedAt":"2026-11-16T10:00:00.000Z"}
 
 ```
 
@@ -200,6 +792,75 @@ type LedgerEntry = {
 
 Ledger events are immutable and idempotent. Do not infer a balance by adding every `amount`: assets and event semantics differ, and overpayment may describe value already counted in a received transfer. Final accounting rules must define balance aggregation before exposing a balance endpoint.
 
+### Exact JSON structure: `CheckoutPayment`
+
+Every field is shown below; none is optional in this proposed DTO. This is the public checkout response and the JSON inside each SSE `data` line. Example values illustrate the types; statuses and timestamps change through the lifecycle.
+
+```json
+{
+  "id": "pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+  "merchant": {
+    "businessName": "Ada Stores"
+  },
+  "ngnAmountKobo": "1500000",
+  "requiredTokenAmount": "10000000",
+  "receivedTokenAmount": "0",
+  "remainingTokenAmount": "10000000",
+  "token": {
+    "address": "0x1111111111111111111111111111111111111111",
+    "symbol": "TESTUSD",
+    "decimals": 6
+  },
+  "chainId": 84532,
+  "lockedRate": "1500.000000",
+  "rateExpiresAt": "2026-11-16T10:01:00.000Z",
+  "topUpExpiresAt": "2026-11-16T10:06:00.000Z",
+  "depositAddress": "0x2222222222222222222222222222222222222222",
+  "status": "AWAITING_PAYMENT",
+  "requiredConfirmations": 2,
+  "checkoutUrl": "https://checkout.example.com/payments/pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+  "qrPayload": "ethereum:0x1111111111111111111111111111111111111111@84532/transfer?address=0x2222222222222222222222222222222222222222&uint256=10000000",
+  "receiptAvailable": false,
+  "createdAt": "2026-11-16T10:00:00.000Z",
+  "updatedAt": "2026-11-16T10:00:00.000Z"
+}
+```
+
+### Exact JSON structure: `MerchantPayment`
+
+The merchant DTO has all `CheckoutPayment` fields plus `merchantId` at the top level. It is not wrapped in a `payment` or `data` object. Creation and merchant detail endpoints return this object directly; the merchant list places these objects inside `items`.
+
+```json
+{
+  "id": "pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+  "merchant": {
+    "businessName": "Ada Stores"
+  },
+  "ngnAmountKobo": "1500000",
+  "requiredTokenAmount": "10000000",
+  "receivedTokenAmount": "0",
+  "remainingTokenAmount": "10000000",
+  "token": {
+    "address": "0x1111111111111111111111111111111111111111",
+    "symbol": "TESTUSD",
+    "decimals": 6
+  },
+  "chainId": 84532,
+  "lockedRate": "1500.000000",
+  "rateExpiresAt": "2026-11-16T10:01:00.000Z",
+  "topUpExpiresAt": "2026-11-16T10:06:00.000Z",
+  "depositAddress": "0x2222222222222222222222222222222222222222",
+  "status": "AWAITING_PAYMENT",
+  "requiredConfirmations": 2,
+  "checkoutUrl": "https://checkout.example.com/payments/pay_8a6f0c4e92b741d5b307ef19a26c8d04",
+  "qrPayload": "ethereum:0x1111111111111111111111111111111111111111@84532/transfer?address=0x2222222222222222222222222222222222222222&uint256=10000000",
+  "receiptAvailable": false,
+  "createdAt": "2026-11-16T10:00:00.000Z",
+  "updatedAt": "2026-11-16T10:00:00.000Z",
+  "merchantId": "mer_ada"
+}
+```
+
 ## Optional dashboard and operational routes
 
 These routes support the UI or deployment but are not explicitly required by the system design.
@@ -211,6 +872,65 @@ These routes support the UI or deployment but are not explicitly required by the
 | `GET /health/ready` | Public, minimal result | No body | `200`, `{ status: "ready" }` when the API's required database access is available; otherwise `503`, `{ status: "not_ready" }`. Does not claim worker or chain health. |
 
 The payment creation response already contains the locked rate, so no standalone quote endpoint is required. A future rate-preview endpoint must clearly distinguish an indicative rate from a locked payment quote.
+
+### `GET /merchants/me/dashboard`
+
+Request body: none.
+
+Example query: `?from=2026-11-16T00:00:00.000Z&to=2026-11-17T00:00:00.000Z`.
+
+Response: `200`.
+
+```json
+{
+  "paymentCount": 1,
+  "countsByStatus": {
+    "CREATED": 0,
+    "AWAITING_PAYMENT": 0,
+    "CONFIRMING": 0,
+    "PAID": 0,
+    "PAYOUT_PENDING": 0,
+    "SETTLED": 1,
+    "EXPIRED": 0,
+    "UNDERPAID": 0,
+    "OVERPAID": 0,
+    "WRONG_NETWORK_FLAGGED": 0
+  },
+  "settledNgnAmountKobo": "1500000"
+}
+```
+
+### `GET /health/live`
+
+Request body: none.
+
+Response: `200`.
+
+```json
+{
+  "status": "ok"
+}
+```
+
+### `GET /health/ready`
+
+Request body: none.
+
+Response: `200`.
+
+```json
+{
+  "status": "ready"
+}
+```
+
+When the database dependency is unavailable, readiness returns `503`:
+
+```json
+{
+  "status": "not_ready"
+}
+```
 
 ## Application errors
 
