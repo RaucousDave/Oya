@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, or, lt, and, desc } from "drizzle-orm";
 import { Database } from "../src/db";
 import { ledgerEntries } from "../src/db/ledgerEntries";
 import { PaymentRepository } from "./payment.repository";
@@ -16,12 +16,47 @@ export class LedgerEntries {
   ) {
     await this.paymentRepo.getMerchantPayment(paymentId, merchantId);
 
-    const [LedgerEntries] = await this.db
+    const LedgerEntries = await this.db
       .select()
       .from(ledgerEntries)
       .where(eq(ledgerEntries.paymentId, paymentId))
       .limit(limit ?? 20);
 
     return LedgerEntries;
+  }
+
+  async listLedgerEntries(
+    paymentId: string,
+    merchantId: string,
+    limit = 20,
+    cursor?: { createdAt: Date; id: string },
+  ) {
+    await this.paymentRepo.getMerchantPayment(paymentId, merchantId);
+    const rows = await this.db
+      .select()
+      .from(ledgerEntries)
+      .where(
+        cursor
+          ? or(
+              lt(ledgerEntries.createdAt, cursor.createdAt),
+              and(
+                eq(ledgerEntries.createdAt, cursor.createdAt),
+                lt(ledgerEntries.id, cursor.id),
+              ),
+            )
+          : undefined,
+      )
+      .orderBy(desc(ledgerEntries.createdAt), desc(ledgerEntries.id))
+      .limit(limit + 1);
+
+    const hasMore = rows.length > limit;
+
+    const items = hasMore ? rows.slice(0, limit) : rows;
+    const last = items[items.length - 1];
+
+    return {
+      items,
+      nextCursor: hasMore ? { createdAt: last.createdAt, id: last.id } : null,
+    };
   }
 }

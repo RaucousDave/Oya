@@ -61,13 +61,20 @@ export class PaymentRepository {
   }
 
   // Get payment transactions
-  async getTransaction(paymentId: string, merchantId: string) {
+  async listTransactions(
+    paymentId: string,
+    merchantId: string,
+    limit?: number,
+    offset?: number,
+  ) {
     await this.getMerchantPayment(paymentId, merchantId);
 
     return this.db
       .select()
       .from(chainTxs)
-      .where(eq(chainTxs.paymentId, paymentId));
+      .where(eq(chainTxs.paymentId, paymentId))
+      .limit(limit ?? 10)
+      .offset(offset ?? 0);
   }
 
   // Get payment payouts - payments with status of succeeded

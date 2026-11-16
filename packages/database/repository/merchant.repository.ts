@@ -31,7 +31,7 @@ export class MerchantRepository {
   async updateMerchant(input: UpdateMerchantInput) {
     const [merchant] = await this.db
       .update(merchants)
-      .set(input)
+      .set({ ...input, updatedAt: new Date() })
       .where(eq(merchants.userId, input.userId))
       .returning();
 

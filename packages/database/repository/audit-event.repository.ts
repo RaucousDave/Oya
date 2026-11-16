@@ -12,12 +12,12 @@ export class AuditEventRepository {
   async getAuditEvents(paymentId: string, merchantId: string, limit?: number) {
     await this.paymentRepo.getMerchantPayment(paymentId, merchantId);
 
-    const [auditEvent] = await this.db
+    const allAuditEvents = await this.db
       .select()
       .from(auditEvents)
       .where(eq(auditEvents.paymentId, paymentId))
       .limit(limit ?? 20);
 
-    return auditEvent;
+    return allAuditEvents;
   }
 }
