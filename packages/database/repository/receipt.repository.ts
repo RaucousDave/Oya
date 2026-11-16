@@ -19,5 +19,7 @@ export class ReceiptRepository {
 
     if (!receipt)
       throw new Error("No receipt for this payment has been created yet");
+
+    return receipt;
   }
 }
