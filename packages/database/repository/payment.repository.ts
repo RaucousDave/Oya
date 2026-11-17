@@ -11,12 +11,28 @@ export class PaymentRepository {
   constructor(private readonly db: Database) {}
 
   // For creating a mock payment
-  async makePayments(input: CreatePaymentInput) {
-    const [newPayment] = await this.db
+  async makePayment(input: CreatePaymentInput) {
+    const [payment] = await this.db
       .insert(payments)
       .values(input)
+      .onConflictDoNothing()
       .returning();
-    return newPayment;
+
+    if (!payment) {
+      const [existing] = await this.db
+        .select()
+        .from(payments)
+        .where(
+          and(
+            eq(payments.idempotencyKey, input.idempotencyKey),
+            eq(payments.merchantId, input.merchantId),
+          ),
+        );
+
+      return existing;
+    }
+
+    return payment;
   }
 
   // Get all payments for a single merchant, implements pagination for frontend
