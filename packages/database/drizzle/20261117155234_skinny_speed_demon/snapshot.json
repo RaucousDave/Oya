@@ -1,0 +1,454 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "fb9c524d-a56e-472e-9d02-c766656edb99",
+  "prevIds": [
+    "58506b55-de63-42fb-9b92-230e9b09609c"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "reference"
+      ],
+      "writes": [
+        "s|col|public.payments.reference",
+        "n|col|public.payments.reference",
+        "e|col|public.payments.reference"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "idempotency_key"
+      ],
+      "writes": [
+        "s|col|public.payments.idempotency_key",
+        "n|col|public.payments.idempotency_key",
+        "e|col|public.payments.idempotency_key"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "recreate_enum",
+      "statementTarget": [
+        "enum",
+        "public",
+        "paymentStatus"
+      ],
+      "writes": [
+        "s|enum|public.paymentStatus",
+        "n|enum|public.paymentStatus",
+        "e|enum|public.paymentStatus",
+        "n|type|public.paymentStatus",
+        "s|colprop|public.audit_events.old_status.type",
+        "s|colprop|public.audit_events.old_status.default",
+        "s|colprop|public.audit_events.new_status.type",
+        "s|colprop|public.audit_events.new_status.default",
+        "s|colprop|public.payments.status.type",
+        "s|colprop|public.payments.status.default"
+      ],
+      "reads": [
+        "n|sch|public",
+        "n|tbl|public.audit_events",
+        "n|sch|public",
+        "n|col|public.audit_events.old_status",
+        "n|tbl|public.audit_events",
+        "n|sch|public",
+        "n|col|public.audit_events.new_status",
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.status"
+      ],
+      "sqlHash": "34c4f2f7b38805c7"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "merchant_id"
+      ],
+      "writes": [
+        "s|colprop|public.payments.merchant_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.merchant_id"
+      ],
+      "sqlHash": "6f55eea3a5eaba10"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "ngn_amount_kobo"
+      ],
+      "writes": [
+        "s|colprop|public.payments.ngn_amount_kobo.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.ngn_amount_kobo"
+      ],
+      "sqlHash": "70f742914ea4f332"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "token_address"
+      ],
+      "writes": [
+        "s|colprop|public.payments.token_address.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.token_address"
+      ],
+      "sqlHash": "d07b54b37a7f2ffd"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "token_decimals"
+      ],
+      "writes": [
+        "s|colprop|public.payments.token_decimals.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.token_decimals"
+      ],
+      "sqlHash": "00daaeaba9caaabc"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "chain_id"
+      ],
+      "writes": [
+        "s|colprop|public.payments.chain_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.chain_id"
+      ],
+      "sqlHash": "5623d2f5393d6688"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "locked_rate_numeric"
+      ],
+      "writes": [
+        "s|colprop|public.payments.locked_rate_numeric.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.locked_rate_numeric"
+      ],
+      "sqlHash": "d9125fafa74a5b28"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "rate_expires_at"
+      ],
+      "writes": [
+        "s|colprop|public.payments.rate_expires_at.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.rate_expires_at"
+      ],
+      "sqlHash": "82ac3f3aa2f661e8"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "top_up_expires_at"
+      ],
+      "writes": [
+        "s|colprop|public.payments.top_up_expires_at.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.top_up_expires_at"
+      ],
+      "sqlHash": "1ab39b871fb1a647"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "deposit_address"
+      ],
+      "writes": [
+        "s|colprop|public.payments.deposit_address.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.deposit_address"
+      ],
+      "sqlHash": "db538aa9b4c5f99c"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "status"
+      ],
+      "writes": [
+        "s|colprop|public.payments.status.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.status"
+      ],
+      "sqlHash": "658db6e9f7f33934"
+    },
+    {
+      "statementType": "add_unique",
+      "statementTarget": [
+        "table",
+        "public",
+        "payments"
+      ],
+      "writes": [
+        "s|uq|public.payments.payments_idempotency_key_idx",
+        "n|uq|public.payments.payments_idempotency_key_idx",
+        "e|uq|public.payments.payments_idempotency_key_idx",
+        "n|con|public.payments.payments_idempotency_key_idx",
+        "n|rel|public.payments_idempotency_key_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.merchant_id",
+        "n|col|public.payments.idempotency_key"
+      ]
+    },
+    {
+      "statementType": "add_unique",
+      "statementTarget": [
+        "table",
+        "public",
+        "payments"
+      ],
+      "writes": [
+        "s|uq|public.payments.payments_reference_idx",
+        "n|uq|public.payments.payments_reference_idx",
+        "e|uq|public.payments.payments_reference_idx",
+        "n|con|public.payments.payments_reference_idx",
+        "n|rel|public.payments_reference_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.reference",
+        "n|col|public.payments.merchant_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payments",
+        "name": "reference",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payments",
+        "name": "idempotency_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payments",
+        "name": "payments_idempotency_key_idx",
+        "nameExplicit": true,
+        "columns": [
+          "merchant_id",
+          "idempotency_key"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payments",
+        "name": "payments_reference_idx",
+        "nameExplicit": true,
+        "columns": [
+          "reference",
+          "merchant_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "enums\u0000[\"public\",\"paymentStatus\"]",
+      "set": {
+        "values": [
+          "CREATED",
+          "AWAITING_PAYMENT",
+          "CONFIRMING",
+          "PAID",
+          "PAYOUT_PENDING",
+          "SETTLED",
+          "EXPIRED",
+          "UNDERPAID",
+          "OVERPAID",
+          "WRONG_NETWORK_FLAGGED"
+        ]
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"payments\",\"merchant_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"payments\",\"ngn_amount_kobo\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"payments\",\"token_address\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"payments\",\"token_decimals\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"payments\",\"chain_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"payments\",\"locked_rate_numeric\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"payments\",\"rate_expires_at\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"payments\",\"top_up_expires_at\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"payments\",\"deposit_address\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"payments\",\"status\"]",
+      "set": {
+        "notNull": true
+      }
+    }
+  ]
+}

@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
 } from "drizzle-orm/pg-core";
 import { merchants } from "./merchants";
 
@@ -41,6 +42,8 @@ export const payments = pgTable(
       precision: 78,
       scale: 0,
     }).notNull(),
+    reference: text("reference").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
     tokenAddress: text("token_address").notNull(),
     tokenDecimals: integer("token_decimals").notNull(),
     chainId: integer("chain_id").notNull(),
@@ -56,11 +59,14 @@ export const payments = pgTable(
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at"),
   },
-  (t) => [index("payments_merchant_id_idx").on(t.merchantId)],
+  (t) => [
+    index("payments_merchant_id_idx").on(t.merchantId),
+    unique("payments_idempotency_key_idx").on(t.merchantId, t.idempotencyKey),
+    unique("payments_reference_idx").on(t.reference, t.merchantId),
+  ],
 );
 
 export type Payments = typeof payments.$inferSelect;
-type PaymentInsert = typeof payments.$inferInsert;
 
 export type PaymentStatus = (typeof payments.$inferInsert)["status"];
 
@@ -74,6 +80,8 @@ export type CreatePaymentInput = {
   chainId: number;
   lockedRateNumeric: string;
   rateExpiresAt: Date;
+  reference: string;
+  idempotencyKey: string;
   topUpExpiresAt: Date;
   depositAddress: string;
   status: PaymentStatus;

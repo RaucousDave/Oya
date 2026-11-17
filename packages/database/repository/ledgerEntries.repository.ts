@@ -3,7 +3,7 @@ import { Database } from "../src/db";
 import { ledgerEntries } from "../src/db/ledgerEntries";
 import { PaymentRepository } from "./payment.repository";
 
-export class LedgerEntries {
+export class LedgerEntriesRepository {
   constructor(
     private readonly db: Database,
     private paymentRepo: PaymentRepository,
@@ -36,15 +36,18 @@ export class LedgerEntries {
       .select()
       .from(ledgerEntries)
       .where(
-        cursor
-          ? or(
-              lt(ledgerEntries.createdAt, cursor.createdAt),
-              and(
-                eq(ledgerEntries.createdAt, cursor.createdAt),
-                lt(ledgerEntries.id, cursor.id),
-              ),
-            )
-          : undefined,
+        and(
+          eq(ledgerEntries.paymentId, paymentId),
+          cursor
+            ? or(
+                lt(ledgerEntries.createdAt, cursor.createdAt),
+                and(
+                  eq(ledgerEntries.createdAt, cursor.createdAt),
+                  lt(ledgerEntries.id, cursor.id),
+                ),
+              )
+            : undefined,
+        ),
       )
       .orderBy(desc(ledgerEntries.createdAt), desc(ledgerEntries.id))
       .limit(limit + 1);
