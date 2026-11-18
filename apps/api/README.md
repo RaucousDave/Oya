@@ -4,6 +4,166 @@ This is the proposed MVP HTTP contract derived from [system-design.md](../../sys
 
 The current API source configures Better Auth email/password authentication through the NestJS integration. Authentication routes are library-owned; payment and merchant routes belong to Oya. All paths below are relative to the API origin. Application routes have no `/api` prefix; Better Auth uses `/api/auth`.
 
+## Implemented payment persistence
+
+The [payment repository](../../packages/database/repository/payment.repository.ts) now implements the database operations below and is exported from `@oya/database`. This is persistence infrastructure: the HTTP routes and response DTOs in the rest of this document remain proposed until their controllers/services are implemented. Full payment-creation idempotency, address allocation, worker scheduling, ledger/audit orchestration, and SSE delivery are not implemented by these methods.
+
+### Construction and shared types
+
+```ts
+import { db, PaymentRepository } from "@oya/database";
+import type {
+  InsertPaymentInput,
+  ListMerchantPaymentsInput,
+  OwnedPaymentInput,
+  PaymentCursor,
+  PaymentPage,
+  UpdatePaymentStateInput,
+  CheckoutPaymentView,
+} from "@oya/database";
+
+const payments = new PaymentRepository(db);
+```
+
+`OwnedPaymentInput` is `{ paymentId: string; merchantId: string }`. Resolve the merchant ID from the authenticated session. `PaymentCursor` is `{ timestamp: Date; id: string }`. Paginated methods return `PaymentPage<T>`, meaning `{ items: T[]; nextCursor: PaymentCursor | null }`. Encode/decode the cursor at the API boundary; do not pass an unvalidated query string directly to the repository.
+
+Limits default to 20 and must be integers from 1 through 100. Ordering is descending by timestamp and ID, so equal timestamps do not cause records to be skipped. The extra look-ahead row is never included in `items`. Payment dates filter creation time with inclusive `from` and exclusive `to`; invalid dates and non-increasing ranges are rejected.
+
+### Implemented methods
+
+| Method | Input | Result and intended caller |
+|---|---|---|
+| `insertPayment` | `InsertPaymentInput`, described below | Full payment row. API creation service; inserts `AWAITING_PAYMENT`, received amount `"0"`, and version `0`. |
+| `findByIdempotencyKey` | `{ merchantId, idempotencyKey }` | Full row or `null`. Creation lookup only; not original-response replay or fingerprint validation. |
+| `findIdempotencyKey` | Same input | Compatibility alias for `findByIdempotencyKey`. Prefer the latter in new code. |
+| `getMerchantPayment` | `{ paymentId, merchantId }` | Full owned row or `NotFoundError`. The legacy `(paymentId, merchantId)` signature remains supported for existing repository callers. |
+| `listMerchantPayments` | `{ merchantId, status?, from?: Date, to?: Date, limit?, cursor? }` | `PaymentPage<Payments>` for merchant dashboards. |
+| `getCheckoutPayment` | `{ paymentId }` | Restricted `CheckoutPaymentView` or `NotFoundError`; for public checkout, polling, and initial SSE snapshots. |
+| `findPaymentById` | `{ paymentId }` | Full row or `null`; internal workers only, with no merchant authorization. |
+| `findByDepositAddress` | `{ chainId: number, tokenAddress: string, depositAddress: string }` | Full row or `null`; matches all three fields and compares addresses case-insensitively. |
+| `listPaymentsDueForExpiry` | `{ now: Date, limit: number, afterId?: string }` | Candidate rows in ascending ID order; no mutation. Batch limit is 1-100. |
+| `lockPayment` | `{ paymentId }` | Full row locked until transaction completion, or `NotFoundError`; requires `forTransaction(tx)`. |
+| `updatePaymentState` | `UpdatePaymentStateInput`, described below | Updated full row with incremented version, or `ConcurrentUpdateError`; requires `forTransaction(tx)`. |
+| `listTransactions` | `{ paymentId, merchantId, limit?, cursor? }` | Page of chain transaction rows ordered by `detectedAt` and ID, after ownership verification. Uses an input object, not the old positional/offset signature. |
+
+`Payments` is the exported schema-inferred payment row type. Full rows contain internal fields and are not HTTP response DTOs.
+
+### Creation inputs and idempotency boundary
+
+```ts
+type InsertPaymentInput = {
+  id?: string;
+  createdAt?: Date;
+  merchantId: string;
+  reference: string;
+  idempotencyKey: string;
+  ngnAmountKobo: bigint;
+  requiredTokenAmount: string;
+  tokenAddress: string;
+  tokenDecimals: number;
+  chainId: number;
+  lockedRateNumeric: string;
+  rateExpiresAt: Date;
+  topUpExpiresAt: Date;
+  depositAddress: string;
+};
+```
+
+This is an internal, server-prepared input, not the `POST /payments` body. Validate the client's kobo amount, fetch the rate, calculate required units/deadlines, allocate an address, and derive the merchant ID in services. The concrete implementation keeps the schema's `lockedRateNumeric` name. It does not accept the database planning README's proposed `lockedRate` or `addressAllocationId` fields. Address allocation/assignment remains a separate workflow.
+
+Insertion initializes status, received amount, version, and timestamps. Token/deposit addresses are stored in lowercase; lookup also handles preexisting mixed-case rows. Do not supply predictable IDs for public checkout links; normally let the database package generate a UUID.
+
+Uniqueness errors propagate instead of being swallowed. A duplicate deposit address or merchant reference must not be mistaken for an idempotent replay. The creation service still needs a canonical request fingerprint and persisted original response: same key/body replays, changed body conflicts. A lookup followed by an insert alone does not make concurrent creation safe. Commit creation, replay storage, address assignment, and initial audit together when those capabilities are implemented.
+
+### Mapping repository results to HTTP
+
+`getCheckoutPayment` selects only:
+
+- `id`, `reference`, and `merchant: { businessName }`.
+- `ngnAmountKobo`, `requiredTokenAmount`, `receivedTokenAmount`, and `lockedRate`.
+- `token: { address, decimals }`, `chainId`, and `depositAddress`.
+- `status`, `rateExpiresAt`, `topUpExpiresAt`, `createdAt`, and `updatedAt`.
+- `receiptAvailable`, which is true only when the payment is `SETTLED` and has a receipt row.
+
+It excludes merchant/auth IDs, bank fields, idempotency keys, and internal payment versions. API code must still build the documented `CheckoutPayment` DTO: stringify bigint amounts, serialize dates, add the configured token symbol and required confirmations, compute remaining units using integer arithmetic, and generate the checkout URL and QR payload. Legacy `updatedAt` can be null; map it to `createdAt` when producing the required timestamp. Do not spread an internal payment row into a public response.
+
+Map `NotFoundError` to the same `404` for missing and foreign-owned resources. Validate cursor/limit/date input before querying; repository `RangeError`/`TypeError` for those invalid inputs corresponds to `400`. `ConcurrentUpdateError` is normally handled inside worker/service retry logic by rereading and reevaluating state, not by blindly repeating a stale update or exposing database details to the browser.
+
+### Worker transactions and expiry
+
+```ts
+type UpdatePaymentStateInput = {
+  paymentId: string;
+  expectedVersion: number;
+  expectedStatus: PaymentStatus;
+  nextStatus: PaymentStatus;
+  receivedTokenAmount: string;
+  updatedAt: Date;
+};
+```
+
+The expected version must be a nonnegative safe integer. Received token amount must be a nonnegative integer string of at most 78 digits. The update succeeds only if both expected version and status match, then increments the version. `FAILED` and `REFUNDED` are now persisted enum values matching the domain; this does not add public refund functionality.
+
+Use the static `PaymentRepository.forTransaction(tx)` factory inside an existing Drizzle transaction. Calling lock/update methods on `new PaymentRepository(db)` fails before SQL executes. For example, the following illustrates a detection transition; the service must also persist the detected transfer in the same transaction when integrating the worker:
+
+```ts
+import { auditEvents, db, PaymentRepository } from "@oya/database";
+import { transitionPayment } from "@oya/domain";
+
+async function markDetectedPaymentConfirming(paymentId: string) {
+  return db.transaction(async (tx) => {
+    const repository = PaymentRepository.forTransaction(tx);
+    const current = await repository.lockPayment({ paymentId });
+    const transition = transitionPayment(
+      current.status,
+      "CONFIRMING",
+      "Valid transfer detected",
+    );
+    const updated = await repository.updatePaymentState({
+      paymentId,
+      expectedVersion: current.version,
+      expectedStatus: current.status,
+      nextStatus: transition.to,
+      receivedTokenAmount: current.receivedTokenAmount,
+      updatedAt: transition.timestamp,
+    });
+    await tx.insert(auditEvents).values({
+      paymentId,
+      oldStatus: transition.from,
+      newStatus: transition.to,
+      reason: transition.reason,
+      createdAt: transition.timestamp,
+    });
+    return updated;
+  });
+}
+```
+
+Do not let the transaction-bound repository escape the callback. Confirmation/settlement services must write related ledger entries, audit events, and other financial records through that same `tx`. The repository persists a domain-approved decision; it does not duplicate the domain state machine. Perform RPC/provider calls outside long-running transactions and publish realtime changes only after commit.
+
+Expiry selection currently returns `AWAITING_PAYMENT` rows strictly after rate expiry and `UNDERPAID` rows strictly after the top-up deadline. Equality remains within the window. `CONFIRMING` and terminal states are excluded. These are candidates: lock and recheck current state and detected transfers before expiring, so a scan/confirmation race cannot invalidate a valid payment. Advance batches with the last row's ID and restart from the beginning after each sweep. Candidate selection alone is not a decision that a payment may safely expire.
+
+### Migration and verification
+
+Apply [the payment repository migration](../../packages/database/drizzle/20261118065735_groovy_bromley/migration.sql) before deploying callers of these methods:
+
+```sh
+pnpm --filter @oya/database db:migrate
+pnpm --filter @oya/database typecheck
+```
+
+The migration adds payment versions and the missing domain statuses, and makes payment creation/transfer detection timestamps non-null for pagination. Historical missing payment creation times are inferred as rate expiry minus 60 seconds. Missing detection times use confirmation time when available, otherwise migration time; that fallback is not an exact historical detection timestamp. No live application migration was applied as part of implementing the repository.
+
+Migration configuration reads `NEON_DATABASE_URL`; the current runtime client still reads the misspelled `NEON_DATABSE_URL`. Configure them consistently until that existing client configuration is corrected.
+
+Integration tests require an explicit `DATABASE_TEST_URL` pointing to a disposable PostgreSQL database, then:
+
+```sh
+pnpm --filter @oya/database test:integration
+```
+
+Tests create and remove only a randomly named schema. They apply the SQL migrations and exercise precision, uniqueness, merchant isolation, address matching, filtered cursor pagination, checkout privacy, receipt availability, expiry boundaries, transfer listing, transaction enforcement, concurrent updates, and rollback of related ledger/payment writes. These tests do not establish full HTTP or worker integration.
+
 ## Request and response conventions
 
 - JSON request bodies use `Content-Type: application/json`; ordinary responses use `application/json`.
