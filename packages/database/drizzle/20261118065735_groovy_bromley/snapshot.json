@@ -1,0 +1,133 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "d1dc07e3-ce89-45b3-94e1-1a66f5f61cee",
+  "prevIds": [
+    "fb9c524d-a56e-472e-9d02-c766656edb99"
+  ],
+  "footprints": [
+    {
+      "statementType": "alter_enum",
+      "statementTarget": [
+        "enum",
+        "public",
+        "paymentStatus"
+      ],
+      "writes": [
+        "s|enum|public.paymentStatus"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "version"
+      ],
+      "writes": [
+        "s|col|public.payments.version",
+        "n|col|public.payments.version",
+        "e|col|public.payments.version"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "chain_txs",
+        "detected_at"
+      ],
+      "writes": [
+        "s|colprop|public.chain_txs.detected_at.notNull",
+        "s|colprop|public.chain_txs.detected_at.default"
+      ],
+      "reads": [
+        "n|tbl|public.chain_txs",
+        "n|sch|public",
+        "n|col|public.chain_txs.detected_at"
+      ],
+      "sqlHash": "d46a79ad7ee566ad"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "created_at"
+      ],
+      "writes": [
+        "s|colprop|public.payments.created_at.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.created_at"
+      ],
+      "sqlHash": "b30ff78439e8d62f"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payments",
+        "name": "version",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "enums\u0000[\"public\",\"paymentStatus\"]",
+      "set": {
+        "values": [
+          "CREATED",
+          "AWAITING_PAYMENT",
+          "CONFIRMING",
+          "PAID",
+          "PAYOUT_PENDING",
+          "SETTLED",
+          "EXPIRED",
+          "UNDERPAID",
+          "OVERPAID",
+          "WRONG_NETWORK_FLAGGED",
+          "FAILED",
+          "REFUNDED"
+        ]
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"chain_txs\",\"detected_at\"]",
+      "set": {
+        "notNull": true,
+        "default": "now()"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"payments\",\"created_at\"]",
+      "set": {
+        "notNull": true
+      }
+    }
+  ]
+}

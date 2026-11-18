@@ -26,7 +26,7 @@ export const chainTxs = pgTable(
     }),
     blockNumber: bigint("block_number", { mode: "bigint" }),
     confirmations: integer("confirmations"),
-    detectedAt: timestamp("detected_at"),
+    detectedAt: timestamp("detected_at").notNull().defaultNow(),
     confirmedAt: timestamp("confirmed_at"),
   },
   (t) => [

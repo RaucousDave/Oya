@@ -22,6 +22,8 @@ export const paymentStatusEnum = pgEnum("paymentStatus", [
   "UNDERPAID",
   "OVERPAID",
   "WRONG_NETWORK_FLAGGED",
+  "FAILED",
+  "REFUNDED",
 ]);
 
 export const payments = pgTable(
@@ -56,7 +58,8 @@ export const payments = pgTable(
     depositAddress: text("deposit_address").unique().notNull(),
     status: paymentStatusEnum("status").notNull(),
 
-    createdAt: timestamp("created_at").defaultNow(),
+    version: integer("version").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at"),
   },
   (t) => [
@@ -86,3 +89,8 @@ export type CreatePaymentInput = {
   depositAddress: string;
   status: PaymentStatus;
 };
+
+export type PaymentInsertStatus = Omit<
+  CreatePaymentInput,
+  "status" | "receivedTokenAmount"
+>;
