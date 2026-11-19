@@ -3,6 +3,7 @@ import type { PaymentStatus } from "@oya/contracts";
 import { comparePaymentAmounts } from "@oya/domain/src/money.js";
 import { transitionPayment } from "@oya/domain/src/state-machine.js";
 import type { Clock } from "./clock.js";
+import type { StatusNotifier } from "./status-notifier.js";
 import type {
   ConfirmableChainTx,
   ConfirmTransactionRunner,
@@ -22,6 +23,7 @@ export interface ConfirmProcessorOptions {
   transactions: ConfirmTransactionRunner;
   clock: Clock;
   requiredConfirmations?: number;
+  statusNotifier: StatusNotifier;
 }
 
 function computeConfirmations(
@@ -54,6 +56,7 @@ export class ConfirmProcessor {
   private readonly transactions: ConfirmTransactionRunner;
   private readonly clock: Clock;
   private readonly requiredConfirmations: number;
+  private readonly statusNotifier: StatusNotifier;
 
   constructor(options: ConfirmProcessorOptions) {
     const requiredConfirmations =
@@ -70,6 +73,7 @@ export class ConfirmProcessor {
     this.transactions = options.transactions;
     this.clock = options.clock;
     this.requiredConfirmations = requiredConfirmations;
+    this.statusNotifier = options.statusNotifier;
   }
 
   async confirmOnce(): Promise<void> {
@@ -79,7 +83,8 @@ export class ConfirmProcessor {
     );
 
     for (const [paymentId, chainTxs] of groupByPayment(pending)) {
-      await this.transactions.run(async (transaction) => {
+      const committedChanges = await this.transactions.run(async (transaction) => {
+        let statusChanges = 0;
         let reachedRequired = false;
 
         for (const chainTx of chainTxs) {
@@ -99,7 +104,7 @@ export class ConfirmProcessor {
         }
 
         if (!reachedRequired) {
-          return;
+          return statusChanges;
         }
 
         const payment = await transaction.findPayment(paymentId);
@@ -109,7 +114,7 @@ export class ConfirmProcessor {
         }
 
         if (payment.status !== "CONFIRMING" && payment.status !== "UNDERPAID") {
-          return;
+          return statusChanges;
         }
 
         const confirmedAmount = await transaction.sumConfirmedAmount(
@@ -143,10 +148,11 @@ export class ConfirmProcessor {
           });
 
           currentStatus = topUp.to;
+          statusChanges += 1;
         }
 
         if (targetStatus === currentStatus) {
-          return;
+          return statusChanges;
         }
 
         const transition = transitionPayment(
@@ -174,7 +180,12 @@ export class ConfirmProcessor {
           txHash: null,
           createdAt: this.clock.now(),
         });
+        statusChanges += 1;
+        return statusChanges;
       });
+      for (let change = 0; change < committedChanges; change += 1) {
+        await this.statusNotifier.notifyPaymentStatus(paymentId);
+      }
     }
   }
 }

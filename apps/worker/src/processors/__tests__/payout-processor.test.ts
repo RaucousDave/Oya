@@ -6,6 +6,7 @@ import type { PayoutProvider } from "../payout-provider.js";
 import { PayoutProcessor } from "../payout-processor.js";
 import type { PayoutPayment } from "../payout-transaction.js";
 import { InMemoryPayoutTransaction } from "./in-memory-payout-transaction.js";
+import { InMemoryStatusNotifier } from "./in-memory-status-notifier.js";
 
 const TX_1: Hex =
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -30,8 +31,9 @@ function makePayment(overrides: Partial<PayoutPayment> = {}): PayoutPayment {
 function makeProcessor(
   database: InMemoryPayoutTransaction,
   provider: PayoutProvider = new MockPayoutProvider(),
+  notifier = new InMemoryStatusNotifier(),
 ): PayoutProcessor {
-  return new PayoutProcessor({ transactions: database, provider, clock });
+  return new PayoutProcessor({ transactions: database, provider, clock, statusNotifier: notifier });
 }
 
 describe("PayoutProcessor", () => {
@@ -39,11 +41,13 @@ describe("PayoutProcessor", () => {
     const payment = makePayment();
     const database = new InMemoryPayoutTransaction([payment]);
     const provider = new MockPayoutProvider();
-    const processor = makeProcessor(database, provider);
+    const notifier = new InMemoryStatusNotifier();
+    const processor = makeProcessor(database, provider, notifier);
 
     await processor.payoutOnce();
 
     expect(database.payments.get(payment.id)?.status).toBe("SETTLED");
+    expect(notifier.notifications).toEqual([payment.id, payment.id]);
     expect([...database.payouts.values()]).toEqual([
       {
         paymentId: payment.id,

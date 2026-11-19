@@ -2,6 +2,7 @@ import { transitionPayment } from "@oya/domain/src/state-machine.js";
 import type { Clock } from "./clock.js";
 import type { PayoutProvider } from "./payout-provider.js";
 import type { PayoutTransactionRunner } from "./payout-transaction.js";
+import type { StatusNotifier } from "./status-notifier.js";
 
 const PAYABLE_STATUSES = ["PAID"] as const;
 
@@ -12,17 +13,20 @@ export interface PayoutProcessorOptions {
   transactions: PayoutTransactionRunner;
   provider: PayoutProvider;
   clock: Clock;
+  statusNotifier: StatusNotifier;
 }
 
 export class PayoutProcessor {
   private readonly transactions: PayoutTransactionRunner;
   private readonly provider: PayoutProvider;
   private readonly clock: Clock;
+  private readonly statusNotifier: StatusNotifier;
 
   constructor(options: PayoutProcessorOptions) {
     this.transactions = options.transactions;
     this.provider = options.provider;
     this.clock = options.clock;
+    this.statusNotifier = options.statusNotifier;
   }
 
   async payoutOnce(): Promise<void> {
@@ -31,11 +35,11 @@ export class PayoutProcessor {
     );
 
     for (const candidate of candidates) {
-      await this.transactions.run(async (transaction) => {
+      const committedChanges = await this.transactions.run(async (transaction) => {
         const payment = await transaction.findPayment(candidate.id);
 
         if (payment === null || payment.status !== "PAID") {
-          return;
+          return 0;
         }
 
         const now = this.clock.now();
@@ -110,7 +114,11 @@ export class PayoutProcessor {
           txHash: null,
           createdAt: now,
         });
+        return 2;
       });
+      for (let change = 0; change < committedChanges; change += 1) {
+        await this.statusNotifier.notifyPaymentStatus(candidate.id);
+      }
     }
   }
 }

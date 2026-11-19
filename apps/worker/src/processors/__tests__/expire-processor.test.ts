@@ -3,6 +3,7 @@ import type { Clock } from "../clock.js";
 import { ExpireProcessor } from "../expire-processor.js";
 import type { ExpirePayment } from "../expire-transaction.js";
 import { InMemoryExpireTransaction } from "./in-memory-expire-transaction.js";
+import { InMemoryStatusNotifier } from "./in-memory-status-notifier.js";
 
 const CREATED_AT = new Date("2026-11-12T12:00:00.000Z");
 const RATE_LOCK_MS = 60 * 1000;
@@ -24,10 +25,11 @@ function makePayment(overrides: Partial<ExpirePayment> = {}): ExpirePayment {
 function makeProcessor(
   database: InMemoryExpireTransaction,
   now: Date,
+  notifier = new InMemoryStatusNotifier(),
 ): ExpireProcessor {
   const clock: Clock = { now: () => now };
 
-  return new ExpireProcessor({ transactions: database, clock });
+  return new ExpireProcessor({ transactions: database, clock, statusNotifier: notifier });
 }
 
 describe("ExpireProcessor", () => {
@@ -35,11 +37,13 @@ describe("ExpireProcessor", () => {
     const payment = makePayment();
     const database = new InMemoryExpireTransaction([payment]);
     const now = at(RATE_LOCK_MS + 1);
-    const processor = makeProcessor(database, now);
+    const notifier = new InMemoryStatusNotifier();
+    const processor = makeProcessor(database, now, notifier);
 
     await processor.expireOnce();
 
     expect(database.payments.get(payment.id)?.status).toBe("EXPIRED");
+    expect(notifier.notifications).toEqual([payment.id]);
     expect(database.auditEvents).toEqual([
       {
         paymentId: payment.id,

@@ -4,6 +4,7 @@ import type { Clock } from "../clock.js";
 import { TransferProcessor } from "../transfer-processor.js";
 import type { Payment } from "../transfer-transaction.js";
 import { InMemoryTransferTransaction } from "./in-memory-transfer-transaction.js";
+import { InMemoryStatusNotifier } from "./in-memory-status-notifier.js";
 
 const PAYMENT_ADDRESS: Hex = "0xAbCdEf0123456789aBcDeF0123456789AbCdEf01";
 const TRANSFER_TO: Hex = PAYMENT_ADDRESS.toLowerCase() as Hex;
@@ -36,8 +37,8 @@ function makePayment(overrides: Partial<Payment> = {}): Payment {
   };
 }
 
-function makeProcessor(database: InMemoryTransferTransaction): TransferProcessor {
-  return new TransferProcessor(database, clock);
+function makeProcessor(database: InMemoryTransferTransaction, notifier = new InMemoryStatusNotifier()): TransferProcessor {
+  return new TransferProcessor(database, clock, notifier);
 }
 
 describe("TransferProcessor", () => {
@@ -72,6 +73,21 @@ describe("TransferProcessor", () => {
         createdAt: NOW,
       },
     ]);
+  });
+
+  it("notifies once after a committed status change and not after rollback", async () => {
+    const payment = makePayment();
+    const database = new InMemoryTransferTransaction([payment]);
+    const notifier = new InMemoryStatusNotifier();
+    const processor = makeProcessor(database, notifier);
+    await processor.handle(makeTransfer());
+    await processor.handle(makeTransfer());
+    expect(notifier.notifications).toEqual([payment.id]);
+
+    const failed = new InMemoryTransferTransaction([makePayment({ status: "EXPIRED" })]);
+    const failedNotifier = new InMemoryStatusNotifier();
+    await expect(makeProcessor(failed, failedNotifier).handle(makeTransfer({ txHash: OTHER_TX_HASH }))).rejects.toThrow();
+    expect(failedNotifier.notifications).toEqual([]);
   });
 
   it("stops when the tx_hash already exists", async () => {

@@ -7,6 +7,7 @@ import {
 } from "../confirm-processor.js";
 import type { ConfirmableChainTx, ConfirmPayment } from "../confirm-transaction.js";
 import { InMemoryConfirmTransaction } from "./in-memory-confirm-transaction.js";
+import { InMemoryStatusNotifier } from "./in-memory-status-notifier.js";
 
 const TX_1: Hex =
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -48,11 +49,13 @@ function makeChainTx(
 function makeProcessor(
   latestBlock: bigint,
   database: InMemoryConfirmTransaction,
+  notifier = new InMemoryStatusNotifier(),
 ): ConfirmProcessor {
   return new ConfirmProcessor({
     chain: new FakeChain(latestBlock),
     transactions: database,
     clock,
+    statusNotifier: notifier,
   });
 }
 
@@ -63,7 +66,8 @@ describe("ConfirmProcessor", () => {
       [payment],
       [makeChainTx()],
     );
-    const processor = makeProcessor(101n, database);
+    const notifier = new InMemoryStatusNotifier();
+    const processor = makeProcessor(101n, database, notifier);
 
     await processor.confirmOnce();
 
@@ -73,6 +77,7 @@ describe("ConfirmProcessor", () => {
       status: "PAID",
     });
     expect(database.ledgerEntries).toEqual([]);
+    expect(notifier.notifications).toEqual([payment.id]);
     expect(database.auditEvents).toEqual([
       {
         paymentId: payment.id,
@@ -274,6 +279,7 @@ describe("ConfirmProcessor", () => {
           chain: new FakeChain(101n),
           transactions: database,
           clock,
+          statusNotifier: new InMemoryStatusNotifier(),
           requiredConfirmations: 0,
         }),
     ).toThrow("requiredConfirmations must be a positive integer");

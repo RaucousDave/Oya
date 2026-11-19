@@ -3,6 +3,7 @@ import { transitionPayment } from "@oya/domain/src/state-machine.js";
 import type { Clock } from "./clock.js";
 import type { TransferHandler } from "./transfer-handler.js";
 import type { TransferTransactionRunner } from "./transfer-transaction.js";
+import type { StatusNotifier } from "./status-notifier.js";
 
 const TRANSFER_RECEIVED_REASON = "transfer_received";
 
@@ -10,16 +11,17 @@ export class TransferProcessor implements TransferHandler {
   constructor(
     private readonly transactions: TransferTransactionRunner,
     private readonly clock: Clock,
+    private readonly statusNotifier: StatusNotifier,
   ) {}
 
   async handle(transfer: ChainTransfer): Promise<void> {
-    await this.transactions.run(async (transaction) => {
+    const changedPaymentId = await this.transactions.run(async (transaction) => {
       const payment = await transaction.findPaymentByDepositAddress(
         transfer.to,
       );
 
       if (payment === null) {
-        return;
+        return null;
       }
 
       const inserted = await transaction.insertChainTxIfAbsent({
@@ -31,7 +33,7 @@ export class TransferProcessor implements TransferHandler {
       });
 
       if (!inserted) {
-        return;
+        return null;
       }
 
       const transition = transitionPayment(
@@ -53,6 +55,10 @@ export class TransferProcessor implements TransferHandler {
         txHash: transfer.txHash,
         createdAt: this.clock.now(),
       });
+      return payment.id;
     });
+    if (changedPaymentId !== null) {
+      await this.statusNotifier.notifyPaymentStatus(changedPaymentId);
+    }
   }
 }

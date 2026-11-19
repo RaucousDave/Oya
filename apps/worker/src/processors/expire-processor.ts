@@ -2,6 +2,7 @@ import type { PaymentStatus } from "@oya/contracts";
 import { evaluatePaymentTiming } from "@oya/domain/src/expiry.js";
 import { transitionPayment } from "@oya/domain/src/state-machine.js";
 import type { Clock } from "./clock.js";
+import type { StatusNotifier } from "./status-notifier.js";
 import type { ExpireTransactionRunner } from "./expire-transaction.js";
 
 const EXPIRABLE_STATUSES = ["AWAITING_PAYMENT", "UNDERPAID"] as const;
@@ -12,15 +13,18 @@ const TOP_UP_GRACE_EXPIRED_REASON = "top_up_grace_expired";
 export interface ExpireProcessorOptions {
   transactions: ExpireTransactionRunner;
   clock: Clock;
+  statusNotifier: StatusNotifier;
 }
 
 export class ExpireProcessor {
   private readonly transactions: ExpireTransactionRunner;
   private readonly clock: Clock;
+  private readonly statusNotifier: StatusNotifier;
 
   constructor(options: ExpireProcessorOptions) {
     this.transactions = options.transactions;
     this.clock = options.clock;
+    this.statusNotifier = options.statusNotifier;
   }
 
   async expireOnce(): Promise<void> {
@@ -30,23 +34,23 @@ export class ExpireProcessor {
     );
 
     for (const candidate of candidates) {
-      await this.transactions.run(async (transaction) => {
+      const changed = await this.transactions.run(async (transaction) => {
         const payment = await transaction.findPayment(candidate.id);
 
         if (payment === null) {
-          return;
+          return false;
         }
 
         const status = payment.status;
 
         if (status !== "AWAITING_PAYMENT" && status !== "UNDERPAID") {
-          return;
+          return false;
         }
 
         const decision = evaluatePaymentTiming(payment.createdAt, now);
 
         if (!shouldExpire(status, decision)) {
-          return;
+          return false;
         }
 
         const transition = transitionPayment(
@@ -64,7 +68,11 @@ export class ExpireProcessor {
           txHash: null,
           createdAt: now,
         });
+        return true;
       });
+      if (changed) {
+        await this.statusNotifier.notifyPaymentStatus(candidate.id);
+      }
     }
   }
 }

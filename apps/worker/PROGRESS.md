@@ -1,7 +1,7 @@
 # Worker progress
 
-Last updated by: opencode (big-pickle), 2026-11-15
-Current phase: 6
+Last updated by: Codex, 2026-11-19
+Current phase: 7 (worker-side notifications implemented; PostgreSQL adapter needs approval)
 
 ## Phases (mark [x] only when typecheck and tests pass)
 - [x] 1. packages/chain: ChainAdapter (viem, Base Sepolia). Script printing latest block and Transfer events for the last 50 blocks. Vitest tests for log-to-ChainTransfer mapping using fake logs. No DB.
@@ -10,7 +10,7 @@ Current phase: 6
 - [x] 4. Confirm job. Tests: exact, underpaid, overpaid, top-up, confirmations below 2.
 - [x] 5. Expire job. Tests: expiry at rate lock, 5-minute top-up grace, transfer arriving just before expiry wins.
 - [x] 6. Payout job with the mock provider, ledger entries, payout row, receipt. Tests: retry creates no duplicates.
-- [ ] 7. Postgres NOTIFY after each committed status change.
+- [ ] 7. Postgres NOTIFY after each committed status change (processor boundary and fake implemented; real PostgreSQL adapter awaits approval).
 
 ## Commands
 - Typecheck: `pnpm --filter @oya/chain typecheck` and `pnpm --filter @oya/worker typecheck`
@@ -62,6 +62,10 @@ Current phase: 6
 - The payout row status is the provider result status (`COMPLETED` for the mock), not a separate hardcoded value. The receipt snapshots merchant id, NGN kobo, token base units, rate string, tx hashes and `Clock` time.
 - `PayoutTransaction` owns payout-specific ledger/receipt types instead of widening the confirm-only `LedgerEntryType`; the real `ledger_entries` table is shared.
 - `PayoutJob` mirrors `ExpireJob`: synchronous overlap guard, caught and logged tick failures ("Payout job failed"), interval start/stop, no chain dependency.
+- Each status-changing processor counts its committed status transitions inside the transaction callback and calls the injected `StatusNotifier` only after `run()` resolves. Transfer duplicate/unknown cases and no-op confirm/expire/payout cases produce no notification. Payout emits two notifications after its single transaction commits (`PAID -> PAYOUT_PENDING` and `PAYOUT_PENDING -> SETTLED`); a top-up confirmation similarly emits one per transition.
+- `StatusNotifier` is a worker-owned boundary with an in-memory test fake. The PostgreSQL implementation must use `SELECT pg_notify('payment_status', $1)` after the transaction has committed; it cannot be implemented here because apps/worker has no database client and `packages/database` is read-only under AGENTS.md.
+- Decision: emit one notifier call per actual state-machine transition, even when multiple transitions share one transaction, and perform all notifier calls only after the transaction runner resolves successfully. This preserves one event per committed change while ensuring rollback emits none.
+- Session verification: `pnpm --filter @oya/chain typecheck` and `pnpm --filter @oya/worker typecheck` passed. After approval to run outside the sandbox, chain tests passed (12) and worker tests passed (47). The final worker suite includes notification assertions for transfer, confirm, expire, and both payout transitions.
 
 ## Needs approval
 1. Cursor table (from phase 2):
@@ -192,7 +196,12 @@ Required repository/db-client behavior (all bound to one `db.transaction`):
 - `PayoutTransactionRunner.run` wraps the callback in the existing db client's `transaction(...)`.
 - The real `PayoutProvider` must treat `idempotencyKey` (the payment id) as a deduplication key, because the external payout cannot be rolled back if the surrounding DB transaction aborts.
 
+7. Status notification adapter (read-only database scope; approval required):
+- Add a PostgreSQL-backed `StatusNotifier` alongside the database client in `packages/database` (or approve an adapter under `apps/worker` that receives the database query client).
+- Implementation: after a processor's transaction runner returns successfully, execute `SELECT pg_notify('payment_status', $1)` with the payment id as the bound payload, once for each state-machine transition committed by that transaction. Never issue it from inside the transaction callback. No database migration or new table is needed.
+
 ## Known issues
+- The worker processors now depend on an injected `StatusNotifier`, but no PostgreSQL notifier is wired because the database client package is empty and read-only for this task. Consequently, these changes establish and test post-commit timing with a fake, but do not yet send a live PostgreSQL NOTIFY.
 - No real db client, `payments`/`chain_txs`/`audit_events`/`ledger_entries`/`payouts`/`receipts` tables, or repositories exist yet, so `TransferProcessor`, `ConfirmProcessor`, `ExpireProcessor` and `PayoutProcessor` are not wired into the worker and only run against in-memory fakes in tests.
 - `ScanJob`, `ConfirmJob`, `ExpireJob` and `PayoutJob` are not started from `apps/worker/src/main.ts` yet, because there is no real cursor table/repository, database repository or chain wiring in `main.ts`.
 - Only `MockPayoutProvider` exists; there is no real `PayoutProvider` adapter or provider-side idempotency store.
@@ -239,8 +248,14 @@ Required repository/db-client behavior (all bound to one `db.transaction`):
 - apps/worker/src/processors/mock-payout-provider.ts (new)
 - apps/worker/src/processors/payout-transaction.ts (new interfaces)
 - apps/worker/src/processors/payout-processor.ts (new)
+- apps/worker/src/processors/status-notifier.ts (new `StatusNotifier` interface)
+- apps/worker/src/processors/__tests__/in-memory-status-notifier.ts (new test fake)
 - apps/worker/src/processors/__tests__/in-memory-payout-transaction.ts (new)
 - apps/worker/src/processors/__tests__/payout-processor.test.ts (new)
+- apps/worker/src/processors/__tests__/confirm-processor.test.ts (post-commit notification assertion)
+- apps/worker/src/processors/__tests__/expire-processor.test.ts (post-commit notification assertion)
+- apps/worker/src/processors/__tests__/payout-processor.test.ts (one notification per committed transition assertion)
+- apps/worker/src/processors/__tests__/transfer-processor.test.ts (exactly-once and rollback notification assertions)
 - apps/worker/src/jobs/payout-job.ts (new)
 - apps/worker/src/jobs/__tests__/payout-job.test.ts (new)
 - apps/worker/package.json (@oya/chain, @oya/domain, @oya/contracts workspace dependencies)
@@ -248,4 +263,4 @@ Required repository/db-client behavior (all bound to one `db.transaction`):
 - apps/worker/PROGRESS.md
 
 ## Next step
-Start phase 7: add a `StatusNotifier` interface (with an in-memory fake) and send a PostgreSQL `NOTIFY payment_status` with the payment id after each committed status-changing transaction (transfer, confirm, expire, payout). Do not add multi-instance locking. Proposed NOTIFY wiring and any new repository method go under "Needs approval". Tests: a committed transition produces exactly one notification, a rolled-back transaction produces none, and a notifier failure does not undo the committed status change.
+After user approval to edit `packages/database` (or inject its eventual query client into apps/worker), implement the PostgreSQL `StatusNotifier` with bound `SELECT pg_notify('payment_status', $1)` after commit, wire it into worker construction, and then mark phase 7 complete.
