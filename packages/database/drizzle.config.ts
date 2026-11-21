@@ -1,9 +1,7 @@
-import "dotenv/config";
 import { defineConfig } from "drizzle-kit";
+import {connectionString} from "./src/db"
 
-const connectionString = process.env.DATABASE_URL ?? process.env.NEON_DATABASE_URL ?? process.env.NEON_DATABSE_URL;
-if (!connectionString)
-  throw new Error(`Cannot read connection string: ${connectionString}`);
+if (!connectionString) throw new Error("Something went wrong")
 
 export default defineConfig({
   out: "./drizzle",

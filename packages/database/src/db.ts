@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 dotenv.config({path: path.resolve(__dirname, "../../../.env")})
-const connectionString = process.env.DATABASE_URL ?? process.env.NEON_DATABASE_URL ?? process.env.NEON_DATABSE_URL;
+export const connectionString = process.env.DATABASE_URL ?? process.env.NEON_DATABASE_URL ?? process.env.NEON_DATABSE_URL;
 
 if (!connectionString)
   throw new Error("Missing DATABASE_URL");

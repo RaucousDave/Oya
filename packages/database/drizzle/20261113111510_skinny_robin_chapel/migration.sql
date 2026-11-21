@@ -44,6 +44,7 @@ CREATE TABLE "payments" (
 	"rate_expires_at" timestamp,
 	"top_up_expires_at" timestamp,
 	"deposit_address" text UNIQUE,
+	"descriptions" text,
 	"status" "paymentStatus",
 	"created_at" timestamp DEFAULT now(),
 	"updated_at" timestamp
