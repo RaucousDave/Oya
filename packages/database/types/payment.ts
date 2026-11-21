@@ -17,7 +17,7 @@ export type ListMerchantPaymentsInput = {
 export type OwnedPaymentInput = { paymentId: string; merchantId: string };
 export type PaymentPageInput = { limit?: number; cursor?: PaymentCursor };
 export type PaymentPage<T> = { items: T[]; nextCursor: PaymentCursor | null };
-export type InsertPaymentInput = PaymentInsertStatus & { id?: string; createdAt?: Date };
+export type InsertPaymentInput = PaymentInsertStatus & { id?: string; createdAt?: Date; description?: string | null };
 export type IdempotencyLookupInput = { merchantId: string; idempotencyKey: string };
 export type DepositAddressLookupInput = {
   chainId: number;

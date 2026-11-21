@@ -4,6 +4,7 @@ import {
   integer,
   numeric,
   pgEnum,
+  pgSequence,
   pgTable,
   text,
   timestamp,
@@ -26,6 +27,8 @@ export const paymentStatusEnum = pgEnum("paymentStatus", [
   "REFUNDED",
 ]);
 
+export const depositAddressIndex = pgSequence("deposit_address_index", { maxValue: 2147483647 });
+
 export const payments = pgTable(
   "payments",
   {
@@ -44,6 +47,7 @@ export const payments = pgTable(
       precision: 78,
       scale: 0,
     }).notNull(),
+    description: text("description"),
     reference: text("reference").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
     tokenAddress: text("token_address").notNull(),

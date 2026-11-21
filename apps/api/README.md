@@ -1,5 +1,30 @@
 # Oya API reference
 
+## Mounted endpoints
+
+The API uses Better Auth session cookies. The shared DTOs live in [@oya/contracts](../../packages/contracts/src/index.ts). The current endpoints below take precedence over the original design proposals later in this document.
+
+| Method and path | Access | Request and response |
+|---|---|---|
+| `POST /auth/signup` | Public | `{ email, password, businessName }`; returns a merchant summary and sets the session cookie. |
+| `POST /auth/login` | Public | `{ email, password }`; returns a merchant summary and sets the session cookie. |
+| `GET /auth/session` | Session | Returns `{ id, businessName }`. |
+| `POST /auth/logout` | Session | Clears the session cookie and returns 204. |
+| `POST /payments` | Session | `{ amount, description? }`, where `amount` is a naira decimal string such as `"8500.00"`. Requires an `Idempotency-Key` header. Returns the original checkout on a matching replay and 409 for changed input. |
+| `GET /payments/:paymentId` | Public checkout link | Returns a customer-safe checkout with exact token units, due times, Base Sepolia details, and wallet URI. |
+| `GET /payments/:paymentId/events` | Public checkout link | Sends an initial `payment` SSE event and changes to the checkout snapshot. Fetches committed state from PostgreSQL every two seconds while connected. |
+| `GET /payments/:paymentId/receipt` | Public checkout link | Returns the settled receipt snapshot. |
+| `GET /merchant/payments` | Session | Accepts `status`, `from`, `to`, `limit`, and `cursor`. Returns payment items, a next cursor, and filtered requested totals for today and this week in Lagos time. |
+| `GET /merchant/payments/:paymentId` | Owner | Returns checkout, transfers, status history, ledger, and payout. |
+| `GET /merchant/payments/:paymentId/{transactions,audit,ledger}` | Owner | Accepts `limit` and `cursor`. Returns the requested records and next cursor. |
+| `GET /merchant/payments/:paymentId/receipt` | Owner | Returns the settled receipt. |
+
+The original Better Auth handler is also mounted at `/api/auth/*`. Oya JSON errors include `statusCode` and `message`. Merchant routes return 404 for a missing or foreign-owned payment. Customer checkout IDs serve as shareable links.
+
+Set `DATABASE_URL`, `BETTER_AUTH_SECRET`, `DEPOSIT_XPUB`, and `DEMO_TOKEN_ADDRESS` before starting the API. Run `pnpm --filter @oya/database db:migrate` against the configured development database. Use an explicitly disposable, migrated PostgreSQL database as `DATABASE_TEST_URL` when running `pnpm --filter @oya/api test`. The integration test creates test merchants and payments in that database.
+
+## Original MVP proposals
+
 This is the proposed MVP HTTP contract derived from [system-design.md](../../system-design.md). The design explicitly names only `GET /payments/:paymentId/events`; the other paths, DTOs, pagination, and HTTP codes below are implementation proposals. This document does not claim these application routes are implemented.
 
 The current API source configures Better Auth email/password authentication through the NestJS integration. Authentication routes are library-owned; payment and merchant routes belong to Oya. All paths below are relative to the API origin. Application routes have no `/api` prefix; Better Auth uses `/api/auth`.

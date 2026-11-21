@@ -1,8 +1,4 @@
-import "reflect-metadata";
-import { NestFactory } from "@nestjs/core";
-import { AppModule } from "./app.module.js";
+import { createApp } from "./create-app";
 
-const app = await NestFactory.create(AppModule, {
-  bodyParser: false,
-});
+const app = await createApp();
 await app.listen(process.env.PORT ?? 3000);

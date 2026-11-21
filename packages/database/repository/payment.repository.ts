@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, gt, gte, lt, or, sql } from "drizzle-orm";
+import { beforeCursor, orderedTimestamp, validateDate, validateLimit } from "./pagination";
 import type { DatabaseExecutor, TransactionExecutor } from "../src/executor";
 import { ConcurrentUpdateError, NotFoundError } from "../src/errors";
 import { payments } from "../src/db/payments";
@@ -10,25 +11,6 @@ import type {
   InsertPaymentInput, ListMerchantPaymentsInput, OwnedPaymentInput,
   PaymentCursor, PaymentPage, PaymentPageInput, UpdatePaymentStateInput,
 } from "../types/payment";
-
-function validateLimit(limit = 20): number {
-  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
-    throw new RangeError("Limit must be an integer between 1 and 100");
-  }
-  return limit;
-}
-
-function validateDate(date: Date): void {
-  if (!(date instanceof Date) || !Number.isFinite(date.getTime())) {
-    throw new TypeError("Expected a valid Date");
-  }
-}
-
-function validateCursor(cursor?: PaymentCursor): void {
-  if (!cursor) return;
-  validateDate(cursor.timestamp);
-  if (!cursor.id) throw new TypeError("Cursor must include an ID");
-}
 
 function page<T>(rows: T[], limit: number, cursorFor: (row: T) => PaymentCursor): PaymentPage<T> {
   const items = rows.slice(0, limit);
@@ -53,6 +35,13 @@ export class PaymentRepository {
     return repository;
   }
 
+  async allocateDepositIndex() {
+    const result = await this.db.execute<{ index: number }>(sql`select nextval('deposit_address_index')::integer as index`);
+    const index = result.rows[0]?.index;
+    if (index === undefined) throw new Error("Deposit index allocation failed");
+    return index;
+  }
+
   /**
    * Insert a server-prepared request with zero received units and AWAITING_PAYMENT
    * status. Rates, deadlines, and the address must already be computed by services.
@@ -61,9 +50,22 @@ export class PaymentRepository {
    * assignment, original-response storage, and the initial audit event.
    */
   async insertPayment(input: InsertPaymentInput) {
+    const [payment] = await this.prepareInsert(input).returning();
+    if (!payment) throw new Error("Payment creation returned no record");
+    return payment;
+  }
+
+  async insertPaymentOnce(input: InsertPaymentInput) {
+    const [payment] = await this.prepareInsert(input).onConflictDoNothing({
+      target: [payments.merchantId, payments.idempotencyKey],
+    }).returning();
+    return payment ?? null;
+  }
+
+  private prepareInsert(input: InsertPaymentInput) {
     const now = input.createdAt ?? new Date();
     validateDate(now);
-    const [payment] = await this.db.insert(payments).values({
+    return this.db.insert(payments).values({
       ...input,
       tokenAddress: input.tokenAddress.toLowerCase(),
       depositAddress: input.depositAddress.toLowerCase(),
@@ -72,9 +74,7 @@ export class PaymentRepository {
       version: 0,
       createdAt: now,
       updatedAt: now,
-    }).returning();
-    if (!payment) throw new Error("Payment creation returned no record");
-    return payment;
+    });
   }
 
   /**
@@ -121,23 +121,33 @@ export class PaymentRepository {
    */
   async listMerchantPayments(input: ListMerchantPaymentsInput) {
     const limit = validateLimit(input.limit);
-    validateCursor(input.cursor);
     if (input.from) validateDate(input.from);
     if (input.to) validateDate(input.to);
     if (input.from && input.to && input.from >= input.to) {
       throw new RangeError("from must be earlier than to");
     }
+    const timestamp = orderedTimestamp(payments.createdAt);
     const rows = await this.db.select().from(payments).where(and(
       eq(payments.merchantId, input.merchantId),
       input.status ? eq(payments.status, input.status) : undefined,
       input.from ? gte(payments.createdAt, input.from) : undefined,
       input.to ? lt(payments.createdAt, input.to) : undefined,
-      input.cursor ? or(
-        lt(payments.createdAt, input.cursor.timestamp),
-        and(eq(payments.createdAt, input.cursor.timestamp), lt(payments.id, input.cursor.id)),
-      ) : undefined,
-    )).orderBy(desc(payments.createdAt), desc(payments.id)).limit(limit + 1);
+      beforeCursor(timestamp, payments.id, input.cursor),
+    )).orderBy(desc(timestamp), desc(payments.id)).limit(limit + 1);
     return page(rows, limit, (row) => ({ timestamp: row.createdAt, id: row.id }));
+  }
+
+  async getMerchantTotals(input: ListMerchantPaymentsInput & { today: Date; week: Date }) {
+    const [totals] = await this.db.select({
+      today: sql<string>`coalesce(sum(${payments.ngnAmountKobo}) filter (where ${payments.createdAt} >= ${input.today.toISOString()}::timestamp), 0)::text`,
+      week: sql<string>`coalesce(sum(${payments.ngnAmountKobo}) filter (where ${payments.createdAt} >= ${input.week.toISOString()}::timestamp), 0)::text`,
+    }).from(payments).where(and(
+      eq(payments.merchantId, input.merchantId),
+      input.status ? eq(payments.status, input.status) : undefined,
+      input.from ? gte(payments.createdAt, input.from) : undefined,
+      input.to ? lt(payments.createdAt, input.to) : undefined,
+    ));
+    return totals ?? { today: "0", week: "0" };
   }
 
   /**
@@ -151,6 +161,7 @@ export class PaymentRepository {
     const [payment] = await this.db.select({
       id: payments.id,
       reference: payments.reference,
+      description: payments.description,
       merchant: { businessName: merchants.businessName },
       ngnAmountKobo: payments.ngnAmountKobo,
       requiredTokenAmount: payments.requiredTokenAmount,
@@ -271,15 +282,12 @@ export class PaymentRepository {
    */
   async listTransactions(input: OwnedPaymentInput & PaymentPageInput) {
     const limit = validateLimit(input.limit);
-    validateCursor(input.cursor);
     await this.getMerchantPayment(input);
+    const timestamp = orderedTimestamp(chainTxs.detectedAt);
     const rows = await this.db.select().from(chainTxs).where(and(
       eq(chainTxs.paymentId, input.paymentId),
-      input.cursor ? or(
-        lt(chainTxs.detectedAt, input.cursor.timestamp),
-        and(eq(chainTxs.detectedAt, input.cursor.timestamp), lt(chainTxs.id, input.cursor.id)),
-      ) : undefined,
-    )).orderBy(desc(chainTxs.detectedAt), desc(chainTxs.id)).limit(limit + 1);
+      beforeCursor(timestamp, chainTxs.id, input.cursor),
+    )).orderBy(desc(timestamp), desc(chainTxs.id)).limit(limit + 1);
     return page(rows, limit, (row) => ({ timestamp: row.detectedAt, id: row.id }));
   }
 

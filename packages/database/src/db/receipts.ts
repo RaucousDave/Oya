@@ -27,8 +27,8 @@ export const receipts = pgTable(
       scale: 0,
     }),
     rate: numeric("rate", {
-      precision: 28,
-      scale: 0,
+      precision: 36,
+      scale: 8,
     }),
     transactionHashes: jsonb("transaction_hashes"),
     createdAt: timestamp("created_at"),

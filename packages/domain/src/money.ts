@@ -41,9 +41,13 @@ export function calculateRequiredTokenAmount(
     throw new Error("Invalid token");
   }
 
-  const rateInKobo = nairaToKobo(rateNgnPerUsd);
+  const rate = /^(\d+)(?:\.(\d{1,8}))?$/.exec(rateNgnPerUsd.trim());
+  if (!rate) throw new Error("Invalid rate format");
+  const fraction = rate[2] ?? "";
+  const rateUnits = BigInt(rate[1]! + fraction);
+  const rateScale = 10n ** BigInt(fraction.length);
 
-  if (rateInKobo <= 0n) {
+  if (rateUnits <= 0n) {
     throw new Error("Rate Must be greater than 0");
   }
 
@@ -51,9 +55,9 @@ export function calculateRequiredTokenAmount(
     throw new Error("Amount must be greater than 0");
   }
 
-  const scaled = amountInKobo * 10n ** BigInt(tokenDecimals);
-
-  return (scaled + rateInKobo - 1n) / rateInKobo;
+  const scaled = amountInKobo * rateScale * 10n ** BigInt(tokenDecimals);
+  const divisor = 100n * rateUnits;
+  return (scaled + divisor - 1n) / divisor;
 }
 
 export interface PaymentComparison {

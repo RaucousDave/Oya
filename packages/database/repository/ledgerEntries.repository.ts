@@ -1,13 +1,21 @@
-import { eq, or, lt, and, desc } from "drizzle-orm";
-import { Database } from "../src/db";
+import { eq, and, desc } from "drizzle-orm";
+import type { DatabaseExecutor } from "../src/executor";
 import { ledgerEntries } from "../src/db/ledgerEntries";
+import { beforeCursor, missingTimestamp, orderedTimestamp, validateLimit } from "./pagination";
 import { PaymentRepository } from "./payment.repository";
 
 export class LedgerEntriesRepository {
   constructor(
-    private readonly db: Database,
-    private paymentRepo: PaymentRepository,
+    private readonly db: DatabaseExecutor,
+    private readonly paymentRepo: PaymentRepository = new PaymentRepository(db),
   ) {}
+
+  async append(input: typeof ledgerEntries.$inferInsert & { idempotencyKey: string }) {
+    const [entry] = await this.db.insert(ledgerEntries)
+      .values({ ...input, createdAt: input.createdAt ?? new Date() })
+      .onConflictDoNothing({ target: ledgerEntries.idempotencyKey }).returning();
+    return entry ?? null;
+  }
 
   async getLedgerEntries(
     paymentId: string,
@@ -20,7 +28,8 @@ export class LedgerEntriesRepository {
       .select()
       .from(ledgerEntries)
       .where(eq(ledgerEntries.paymentId, paymentId))
-      .limit(limit ?? 20);
+      .orderBy(desc(orderedTimestamp(ledgerEntries.createdAt)), desc(ledgerEntries.id))
+      .limit(validateLimit(limit));
 
     return LedgerEntries;
   }
@@ -32,24 +41,18 @@ export class LedgerEntriesRepository {
     cursor?: { createdAt: Date; id: string },
   ) {
     await this.paymentRepo.getMerchantPayment(paymentId, merchantId);
+    validateLimit(limit);
+    const timestamp = orderedTimestamp(ledgerEntries.createdAt);
     const rows = await this.db
       .select()
       .from(ledgerEntries)
       .where(
         and(
           eq(ledgerEntries.paymentId, paymentId),
-          cursor
-            ? or(
-                lt(ledgerEntries.createdAt, cursor.createdAt),
-                and(
-                  eq(ledgerEntries.createdAt, cursor.createdAt),
-                  lt(ledgerEntries.id, cursor.id),
-                ),
-              )
-            : undefined,
+          beforeCursor(timestamp, ledgerEntries.id, cursor && { timestamp: cursor.createdAt, id: cursor.id }),
         ),
       )
-      .orderBy(desc(ledgerEntries.createdAt), desc(ledgerEntries.id))
+      .orderBy(desc(timestamp), desc(ledgerEntries.id))
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
@@ -59,7 +62,7 @@ export class LedgerEntriesRepository {
 
     return {
       items,
-      nextCursor: hasMore ? { createdAt: last.createdAt, id: last.id } : null,
+      nextCursor: hasMore && last ? { createdAt: last.createdAt ?? missingTimestamp, id: last.id } : null,
     };
   }
 }

@@ -1,0 +1,177 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "2ead9872-9805-41f7-9f31-6f478ef68f25",
+  "prevIds": [
+    "d1dc07e3-ce89-45b3-94e1-1a66f5f61cee"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_sequence",
+      "statementTarget": [
+        "sequence",
+        "public",
+        "deposit_address_index"
+      ],
+      "writes": [
+        "s|seq|public.deposit_address_index",
+        "n|seq|public.deposit_address_index",
+        "e|seq|public.deposit_address_index",
+        "n|rel|public.deposit_address_index"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "chain_cursors"
+      ],
+      "writes": [
+        "s|tbl|public.chain_cursors",
+        "n|tbl|public.chain_cursors",
+        "e|tbl|public.chain_cursors",
+        "n|rel|public.chain_cursors",
+        "n|type|public.chain_cursors",
+        "n|rel|public.chain_cursors_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "description"
+      ],
+      "writes": [
+        "s|col|public.payments.description",
+        "n|col|public.payments.description",
+        "e|col|public.payments.description"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "receipts",
+        "rate"
+      ],
+      "writes": [
+        "s|colprop|public.receipts.rate.type",
+        "s|colprop|public.receipts.rate.default"
+      ],
+      "reads": [
+        "n|tbl|public.receipts",
+        "n|sch|public",
+        "n|col|public.receipts.rate"
+      ],
+      "sqlHash": "efc863c2193f4079"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "chain_cursors",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "chain_cursors",
+        "name": "key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "chain_cursors",
+        "name": "block_number",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payments",
+        "name": "description",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "chain_cursors",
+        "name": "chain_cursors_pkey",
+        "columns": [
+          "key"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "deposit_address_index",
+        "incrementBy": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "startWith": "1",
+        "cacheSize": 1,
+        "cycle": false,
+        "entityType": "sequences"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"receipts\",\"rate\"]",
+      "set": {
+        "type": "numeric(36,8)"
+      }
+    }
+  ]
+}

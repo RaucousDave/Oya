@@ -10,6 +10,11 @@ import {
 } from "drizzle-orm/pg-core";
 import { payments } from "./payments";
 
+export const chainCursors = pgTable("chain_cursors", {
+  key: text("key").primaryKey(),
+  blockNumber: bigint("block_number", { mode: "bigint" }).notNull(),
+});
+
 export const chainTxs = pgTable(
   "chain_txs",
   {

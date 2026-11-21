@@ -1,15 +1,27 @@
-import { eq, or, lt, and, desc } from "drizzle-orm";
-import { Database } from "../src/db";
+import { eq, and, desc } from "drizzle-orm";
+import type { DatabaseExecutor } from "../src/executor";
 import { auditEvents } from "../src/db/auditEvents";
+import { beforeCursor, missingTimestamp, orderedTimestamp, validateLimit } from "./pagination";
 import { PaymentRepository } from "./payment.repository";
 
 export class AuditEventRepository {
   constructor(
-    private readonly db: Database,
-    private readonly paymentRepo: PaymentRepository,
+    private readonly db: DatabaseExecutor,
+    private readonly paymentRepo: PaymentRepository = new PaymentRepository(db),
   ) {}
 
-  // Enienghan
+  async append(input: typeof auditEvents.$inferInsert) {
+    const [event] = await this.db.insert(auditEvents)
+      .values({ ...input, createdAt: input.createdAt ?? new Date() }).returning();
+    return event;
+  }
+
+  async getCreationMetadata(paymentId: string) {
+    const [event] = await this.db.select({ metadata: auditEvents.metadata }).from(auditEvents)
+      .where(and(eq(auditEvents.paymentId, paymentId), eq(auditEvents.oldStatus, "CREATED"),
+        eq(auditEvents.newStatus, "AWAITING_PAYMENT"))).limit(1);
+    return event?.metadata;
+  }
 
   async getAuditEvents(
     paymentId: string,
@@ -19,24 +31,18 @@ export class AuditEventRepository {
   ) {
     await this.paymentRepo.getMerchantPayment(paymentId, merchantId);
 
+    validateLimit(limit);
+    const timestamp = orderedTimestamp(auditEvents.createdAt);
     const rows = await this.db
       .select()
       .from(auditEvents)
       .where(
         and(
           eq(auditEvents.paymentId, paymentId),
-          cursor
-            ? or(
-                lt(auditEvents.createdAt, cursor.createdAt),
-                and(
-                  eq(auditEvents.createdAt, cursor.createdAt),
-                  lt(auditEvents.id, cursor.id),
-                ),
-              )
-            : undefined,
+          beforeCursor(timestamp, auditEvents.id, cursor && { timestamp: cursor.createdAt, id: cursor.id }),
         ),
       )
-      .orderBy(desc(auditEvents.createdAt), desc(auditEvents.id))
+      .orderBy(desc(timestamp), desc(auditEvents.id))
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
@@ -45,7 +51,7 @@ export class AuditEventRepository {
 
     return {
       items,
-      nextCursor: hasMore ? { createdAt: last.createdAt, id: last.id } : null,
+      nextCursor: hasMore && last ? { createdAt: last.createdAt ?? missingTimestamp, id: last.id } : null,
     };
   }
 }
