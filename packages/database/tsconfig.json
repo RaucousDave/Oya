@@ -1,5 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "noEmit": true },
+  "compilerOptions": { "noEmit": true, "ignoreDeprecations": "6.0" },
   "include": ["src", "repository/payment.repository.ts", "types", "tests"]
 }

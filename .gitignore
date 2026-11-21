@@ -6,5 +6,6 @@ coverage/
 !.env.example
 *.log
 *.tsbuildinfo
+packages/database/src/test.ts
 
 packages/database/README.md
