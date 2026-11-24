@@ -1,6 +1,6 @@
 import { HDKey } from "@scure/bip32";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
-import { Hex } from "./types";
+import type { Hex } from "./types.js";
 import { getAddress, keccak256 } from "viem";
 
 // creates a unique address for each merchant, to avoid collision when looking up transactions

@@ -50,20 +50,25 @@ export function LoginPage() {
   }
 
   if (session.data) return <Navigate to={destination} replace />;
-  return <section className="product-card product-narrow">
-    <h1>{signup ? "Create a merchant account" : "Merchant sign in"}</h1>
-    <form className="product-form" onSubmit={submit}>
-      {signup && <label>Business name<input name="businessName" autoComplete="organization" maxLength={120} required /></label>}
-      <label>Email address<input name="email" type="email" autoComplete="email" maxLength={254} required /></label>
-      <label>Password<input name="password" type="password" autoComplete={signup ? "new-password" : "current-password"} minLength={8} maxLength={128} required /></label>
-      {mutation.error && <ErrorMessage error={mutation.error} />}
-      <button className="product-primary" type="submit" disabled={mutation.isPending}>
-        {mutation.isPending ? "Please wait…" : signup ? "Create account" : "Sign in"}
+  return <section className="merchant-auth" aria-labelledby="auth-title">
+    <header className="auth-intro">
+      <h1 id="auth-title">{signup ? "Create a merchant account" : "Merchant sign in"}</h1>
+      <p>{signup ? "Create payment links for your business and track incoming payments." : "Access your payment links, transactions, and receipts."}</p>
+    </header>
+    <div className="auth-fields">
+      <form className="product-form" onSubmit={submit}>
+        {signup && <label>Business name<input name="businessName" autoComplete="organization" maxLength={120} required /></label>}
+        <label>Email address<input name="email" type="email" autoComplete="email" maxLength={254} required /></label>
+        <label>Password<input name="password" type="password" autoComplete={signup ? "new-password" : "current-password"} minLength={8} maxLength={128} required /></label>
+        {mutation.error && <ErrorMessage error={mutation.error} />}
+        <button className="product-primary" type="submit" disabled={mutation.isPending}>
+          {mutation.isPending ? "Please wait…" : signup ? "Create account" : "Sign in"}
+        </button>
+      </form>
+      <button className="auth-switch" type="button" disabled={mutation.isPending}
+        onClick={() => { mutation.reset(); setSignup(!signup); }}>
+        {signup ? "Sign in instead" : "Create an account"}
       </button>
-    </form>
-    <button className="product-secondary" type="button" disabled={mutation.isPending}
-      onClick={() => { mutation.reset(); setSignup(!signup); }}>
-      {signup ? "Sign in instead" : "Create an account"}
-    </button>
+    </div>
   </section>;
 }

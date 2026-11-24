@@ -1,6 +1,6 @@
 import { parseAbiItem } from "viem";
 import { createBaseSepoliaClient } from "./index.js";
-import { ChainAdapter, ChainTransfer, Hex } from "./types.js";
+import type { ChainAdapter, ChainTransfer, Hex } from "./types.js";
 
 type BaseSepoliaClient = ReturnType<typeof createBaseSepoliaClient>;
 

@@ -110,3 +110,44 @@
   .product-payment-instructions { grid-template-columns: minmax(0, 1fr); }
   .product-records li > a { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.merchant-auth {
+  display: grid;
+  width: min(100%, 960px);
+  margin-inline: auto;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-xl);
+  background: var(--canvas);
+  box-shadow: var(--shadow-2);
+}
+.auth-intro, .auth-fields {
+  min-width: 0;
+  padding: clamp(20px, 5vw, 56px);
+}
+.auth-intro {
+  display: grid;
+  align-content: center;
+  gap: var(--sp-lg);
+  background: var(--canvas-cream);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  border-block-start: 4px solid var(--primary);
+}
+.auth-intro h1 { text-wrap: balance; }
+.auth-intro p { max-width: 32ch; margin: 0; color: var(--ink-secondary); }
+.auth-fields .product-form { margin: 0; }
+.auth-fields input { min-width: 0; width: 100%; font-size: 1rem; }
+.auth-switch {
+  margin-top: var(--sp-md);
+  min-height: 44px;
+  background: transparent;
+  border: 0;
+  color: var(--primary-deep);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+@media (min-width: 761px) {
+  .merchant-auth { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .auth-intro { border-radius: var(--r-xl) 0 0 var(--r-xl); }
+}

@@ -9,11 +9,11 @@ function createBaseSepoliaClient(rpcUrl?: string) {
 
   return createPublicClient({
     chain: baseSepolia,
-    transport: http(),
+    transport: http(url),
   });
 }
 
 export { createBaseSepoliaClient };
-export * from "./types";
-export * from "./derive";
-export * from "./adapter";
+export * from "./types.js";
+export * from "./derive.js";
+export * from "./adapter.js";
