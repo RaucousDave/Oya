@@ -133,6 +133,9 @@ importers:
       '@oya/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@oya/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
